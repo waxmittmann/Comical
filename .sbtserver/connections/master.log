@@ -1,0 +1,25 @@
+New log file opened at Wed Feb 01 15:26:16 AEDT 2017 by 34213@C02R60JSG8WL
+Taking next connection to: 51560
+New client attempting to connect on port: 51561-51560
+  Address = /192.168.0.1:51560
+This client on port 51561 has uuid 957f08b1-2876-4935-86a9-4049e44d2d5b configName activator humanReadableName Activator protocolVersion 3 featureTags Vector()
+Connected Clients: activator-957f08b1-2876-4935-86a9-4049e44d2d5b
+Taking next connection to: 51560
+New client attempting to connect on port: 51576-51560
+  Address = /192.168.0.1:51560
+Handshake exception on socket: 51576
+sbt.impl.ipc.HandshakeException: Unable to perform handshake
+	at sbt.impl.ipc.Peer.handshake(IPC.scala:46)
+	at sbt.impl.ipc.MultiClientServer.<init>(IPC.scala:150)
+	at sbt.server.SbtServerSocketHandler$$anon$1.run(SbtServerSocketHandler.scala:43)
+Caused by: java.io.EOFException
+	at java.io.DataInputStream.readInt(DataInputStream.java:392)
+	at sbt.impl.ipc.Peer.receive(IPC.scala:95)
+	at sbt.impl.ipc.Peer.handshake(IPC.scala:49)
+	... 2 more
+Taking next connection to: 51560
+New client attempting to connect on port: 51577-51560
+  Address = /192.168.0.1:51560
+This client on port 51577 has uuid 0347a352-840a-466f-b45b-dffbd4be62cc configName activator humanReadableName Activator protocolVersion 3 featureTags Vector()
+Connected Clients: activator-0347a352-840a-466f-b45b-dffbd4be62cc
+Taking next connection to: 51560
