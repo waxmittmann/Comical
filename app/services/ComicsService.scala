@@ -64,7 +64,12 @@ class ComicsService @Inject() (wsClient: WSClient)(implicit ec: ExecutionContext
 
     val futures: Future[List[String]] = comicIds.map(id => {
       val requestUrl = apiUrl(id.toString)
-      wsClient.url(requestUrl).execute().map(_.body)
+      wsClient.url(requestUrl).execute().map(response => {
+        if (response.status == 200)
+          response.body
+        else
+          ""
+      })
     }).sequence[Future, String]
 
     futures
