@@ -2,10 +2,13 @@ package controllers
 
 import akka.actor.ActorSystem
 import javax.inject._
+
 import play.api._
 import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
+
+import services.ComicsService
 
 /**
  * This controller creates an `Action` that demonstrates how to write
@@ -18,7 +21,12 @@ import scala.concurrent.duration._
  * asynchronous code.
  */
 @Singleton
-class AsyncController @Inject() (actorSystem: ActorSystem)(implicit exec: ExecutionContext) extends Controller {
+class AsyncController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
+
+  def comics = Action.async {
+    val x: Future[List[String]] = comicsService.get2(List(1, 2, 3, 4))
+    x.map(li => Ok(li.mkString(", ")))
+  }
 
   /**
    * Create an Action that returns a plain text message after a delay
@@ -31,6 +39,10 @@ class AsyncController @Inject() (actorSystem: ActorSystem)(implicit exec: Execut
   def message = Action.async {
     getFutureMessage(1.second).map { msg => Ok(msg) }
   }
+
+//  def getComics = Action.async {
+//
+//  }
 
   private def getFutureMessage(delayTime: FiniteDuration): Future[String] = {
     val promise: Promise[String] = Promise[String]()
