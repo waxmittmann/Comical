@@ -8,7 +8,10 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 
+import play.api.libs.json.{JsArray, JsNumber, JsObject, JsValue}
+import play.twirl.api.Html
 import services.ComicsService
+import services.ComicsService.{BadJson, ComicQueryResult, Found, NotFound}
 
 /**
  * This controller creates an `Action` that demonstrates how to write
@@ -24,8 +27,41 @@ import services.ComicsService
 class AsyncController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
 
   def comics = Action.async {
-    val x: Future[List[String]] = comicsService.get2(List(1, 2, 3, 4))
-    x.map(li => Ok(li.mkString(", ")))
+    val x: Future[List[ComicQueryResult]] = comicsService.get(List(42882, 41530, 999999999, 60754))
+
+    x.map(li => {
+      val found: List[JsValue] =
+        li.flatMap(_ match {
+          case v : Found => Some(v)
+          case _ => None
+        }).map(_.comicJson.value)
+
+      val notFound: List[JsNumber] =
+        li
+          .flatMap(_ match {
+            case v: NotFound => Some(v)
+            case _ => None
+          })
+          .map(nf => JsNumber(nf.id))
+
+      val badJson: List[JsNumber] =
+        li
+          .flatMap(_ match {
+            case v: BadJson => Some(v)
+            case _ => None
+          })
+          .map(nf => JsNumber(nf.id))
+
+      val result =
+        JsObject(Seq(
+          "data" -> JsArray(found),
+          "notFound" -> JsArray(notFound),
+          "badJson" -> JsArray(badJson)
+        ))
+      Ok(result)
+    })
+
+    //x.map(li => Ok(Html(li.map(i => s"<div>$i</div><div>-------</div>").mkString(""))))
   }
 
   /**
