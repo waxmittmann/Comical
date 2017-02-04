@@ -2,19 +2,17 @@ package services
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import java.security.MessageDigest
-import java.time.{LocalDateTime, ZoneOffset}
-import java.util.Properties
 import javax.inject._
 
 import play.api.libs.json.{JsDefined, JsUndefined, Json}
+import play.api.libs.ws.WSResponse
 import services.ComicsService.{BadJson, ComicQueryResult, Failed, Found, NotFound}
-//import com.google.inject.Inject
-import play.api.libs.ws.{WSClient, WSRequest}
+import play.api.libs.ws.WSClient
 import redis.RedisClient
 import cats.{Monad, Traverse}
 import cats.syntax.traverse._
 import cats.instances.all._
+import play.api.Logger
 
 object ComicsService {
   sealed trait ComicQueryResult
@@ -29,31 +27,7 @@ class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)
 
   implicit val akkaSystem = akka.actor.ActorSystem()
   val redis = RedisClient()
-//  val (publicKey, privateKey) = readApiKeys
   val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
-
-//  def apiKeysUrlPart = {
-//    val ts = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-//    //val ts = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-//    val digest = MessageDigest.getInstance("MD5").digest(s"$ts$privateKey$publicKey".getBytes) //.toString
-//    val hash = digest.map("%02x".format(_)).mkString
-//
-//    s"ts=$ts&apikey=$publicKey&hash=$hash"
-//  }
-//
-//  def readApiKeys: (String, String) = {
-//    println("Reading props")
-//    val filename = "api.properties"
-//    val input = getClass().getClassLoader().getResourceAsStream(filename)
-//    if (input == null) {
-//      System.out.println("Sorry, unable to find " + filename)
-//      throw new RuntimeException("Sorry, unable to find " + filename)
-//    }
-//    val prop = new Properties()
-//    prop.load(input)
-//    println("Props read")
-//    (prop.getProperty("publickey"), prop.getProperty("privatekey"))
-//  }
 
   def apiUrl(
     query: String,
@@ -61,35 +35,42 @@ class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)
   ): String = {
     val apiKeysUrlPart = marvelService.apiKeysUrlPart
     val path = s"$baseUrl$subPath/$query?$apiKeysUrlPart"
-    println(s"Path: $path")
+    Logger.debug(s"Generated Api: $path")
     path
   }
 
-  def get(comicIds: List[Int]): Future[List[ComicQueryResult]] = {
-    println("Called Get")
-
-    val futures: Future[List[ComicQueryResult]] = comicIds.map(id => {
+  def get(comicIds: List[Int]): Future[List[ComicQueryResult]] =
+    comicIds.map(id => {
       val requestUrl = apiUrl(id.toString)
-      wsClient.url(requestUrl).execute().map(response => {
-        if (response.status == 200) {
-          Try(Json.parse(response.body)) match {
-            case Failure(exception) => Failed(id, response.body) //Probably want to map this to something else and then fail the whole request
-            case Success(jsonBody) => {
-              val dataPart = jsonBody \ "data" \ "results" \ 0
-              dataPart match {
-                case json @ JsDefined(_) => Found(json)
-                case _: JsUndefined => BadJson(id, response.body)
-              }
-            }
-          }
-        }
-        else
-          NotFound(id)
-      })
+      getFromMarvel(id, requestUrl)
     }).sequence[Future, ComicQueryResult]
 
-    println("Returning futures")
+  def getFromMarvel(
+    id: Int,
+    requestUrl: String
+  ): Future[ComicQueryResult] = {
+    wsClient.url(requestUrl).execute().map(response => {
+      if (response.status == 200) {
+        processResponse(id, response)
+      }
+      else
+        NotFound(id)
+    })
+  }
 
-    futures
+  def processResponse(
+    id: Int,
+    response: WSResponse
+  ): ComicQueryResult = {
+    Try(Json.parse(response.body)) match {
+      case Failure(exception) => Failed(id, response.body)
+      case Success(jsonBody) => {
+        val dataPart = jsonBody \ "data" \ "results" \ 0
+        dataPart match {
+          case json@JsDefined(_) => Found(json)
+          case _: JsUndefined => BadJson(id, response.body)
+        }
+      }
+    }
   }
 }
