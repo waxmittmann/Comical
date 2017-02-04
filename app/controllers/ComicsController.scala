@@ -19,6 +19,9 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit exec: Ex
 
   def comics: Action[AnyContent] = Action.async { implicit request =>
     println(s"QS: ${request.queryString}")
+  def index: Action[AnyContent] = Action {
+    Ok("This is a proxy for the marvel api. Hit /comics with a comicIds parameter containing a comma-separated list of ids.")
+  }
 
     val queryStringOrBadRequest: Either[Future[Result], Seq[String]] =
       Either.fromOption(
