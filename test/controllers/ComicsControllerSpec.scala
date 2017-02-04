@@ -13,7 +13,9 @@ import play.api.libs.concurrent.Execution.Implicits._
 import org.mockito.Mockito._
 import play.api.http.HttpEntity
 import play.api.http.HttpEntity.{Chunked, Streamed, Strict}
+import play.api.libs.json.{JsArray, JsBoolean, JsDefined, JsNumber, JsObject, JsString, JsValue}
 import play.api.test.Helpers._
+import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound, WrongJsonSchema}
 
 class ComicsControllerSpec extends PlaySpec {
   def setup(): (ComicsService, ComicsController) = {
@@ -29,8 +31,6 @@ class ComicsControllerSpec extends PlaySpec {
   "ComicsController GET" should {
     "return BadRequest if the comicsId parameter is not present in the url" in new Context {
       //Given
-      when(mockComicsService.get(Seq(1))) thenReturn(Future.successful(Seq()))
-
       val req: Request[AnyContent] = FakeRequest(
         method = "GET",
         path = "http://www.whatevs.com/comics"
@@ -49,8 +49,6 @@ class ComicsControllerSpec extends PlaySpec {
 
     "return BadRequest if the comicsId parameter cannot be parsed to a list of integers" in new Context {
       //Given
-      when(mockComicsService.get(Seq(1))) thenReturn(Future.successful(Seq()))
-
       val req: Request[AnyContent] = FakeRequest(
         method = "GET",
         path = "http://www.whatevs.com/comics?comicIds=1a"
@@ -68,15 +66,44 @@ class ComicsControllerSpec extends PlaySpec {
     }
 
     "return Ok and a json result describing the result returned from ComicsService" in new Context {
-      when(mockComicsService.get(Seq(1))) thenReturn(Future.successful(Seq()))
+      //Given
+      val validComicJson = JsObject(Seq("a" -> JsNumber(1)))
 
-      val req: Request[AnyContent] = FakeRequest(
-        method = "GET",
-        path = "http://www.whatevs.com/comics?comicIds=1"
+      val comicResult = Seq(
+        Found(1, JsDefined(validComicJson)),
+        NotFound(2),
+        MalformedJson(3, "Malformed!"),
+        WrongJsonSchema(4, JsDefined(JsObject(Seq("b" -> JsString("wrong")))))
       )
 
-      val r = comicsController.comics()(req)
-      println(s"R is: $r")
+      when(mockComicsService.get(Seq(1,2,3,4))) thenReturn(Future.successful(comicResult))
+
+      val expectedJson =
+        JsObject(Seq(
+          "data" -> JsArray(Seq(validComicJson)),
+          "notFound" -> JsArray(Seq(JsNumber(2))),
+          "malformedJson" -> JsArray(Seq(JsNumber(3))),
+          "badJsonSchema" -> JsArray(Seq(JsNumber(4))),
+          "success" -> JsBoolean(false)
+        ))
+
+      val url = "http://www.whatevs.com/comics?comicIds=1,2,3,4".replace(",", "%2C")
+      println(s"URL: $url")
+      val req: Request[AnyContent] = FakeRequest(
+        method = "GET",
+        path = url
+      )
+
+      //When
+      val result = comicsController.comics()(req)
+
+      //Then
+      //val content = contentAsString(result)
+      val content: JsValue = contentAsJson(result)
+      val rStatus: Int = status(result)
+
+      rStatus mustEqual(200)
+      content mustEqual(expectedJson)
     }
   }
 }

@@ -21,8 +21,10 @@ object ComicsService {
     val id: Int
   }
 
+  //Todo: Unwrap the JsDefined
   case class Found(id: Int, comicJson: JsDefined) extends ComicQueryResult
   case class NotFound(id: Int) extends ComicQueryResult
+  //Todo: Unwrap the JsDefined
   case class WrongJsonSchema(id: Int, badJson: JsDefined) extends ComicQueryResult
   case class MalformedJson(id: Int, failResponse: String) extends ComicQueryResult
 }
