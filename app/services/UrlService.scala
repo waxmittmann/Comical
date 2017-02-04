@@ -15,9 +15,13 @@ trait UrlService {
 }
 
 @Singleton
-class UrlServiceImpl @Inject()() extends UrlService {
+class UrlServiceImpl @Inject()(configuration: play.api.Configuration) extends UrlService {
   val (publicKey, privateKey) = readApiKeys
-  val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
+//  val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
+
+  //val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
+  val baseUrl = configuration.getString("comical.marvel.url").get
+
 
   def apiUrl(query: String): String = {
     val path = s"${baseUrl}comics/$query?$apiKeysUrlPart"

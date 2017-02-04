@@ -5,24 +5,26 @@ import javax.inject._
 import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
+import scala.reflect.internal.Precedence
 import scala.util.{Failure, Success, Try}
 
 import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
 import services.ComicsService
 import cats.syntax.either._
+import play.api.Logger
 import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound, WrongJsonSchema}
 
 
 @Singleton
-class ComicsController @Inject()(comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
-  val maxQueriesPerRequest = 50
+class ComicsController @Inject()(configuration: play.api.Configuration, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
+  //val maxQueriesPerRequest = 50
+  val maxQueriesPerRequest = configuration.getInt("comical.maxQueriesPerRequest").get
 
-  def comics: Action[AnyContent] = Action.async { implicit request =>
-    println(s"QS: ${request.queryString}")
   def index: Action[AnyContent] = Action {
     Ok("This is a proxy for the marvel api. Hit /comics with a comicIds parameter containing a comma-separated list of ids.")
   }
 
+  def comics: Action[AnyContent] = Action.async { implicit request =>
     val queryStringOrBadRequest: Either[Future[Result], Seq[String]] =
       Either.fromOption(
         request.queryString.get("comicIds"),
@@ -46,15 +48,17 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit exec: Ex
     val comicsResult = comicIdsOrBadRequest.map(comicIds => {
       val x: Future[Seq[ComicQueryResult]] = comicsService.get(comicIds)
 
+      println(s"Got future: $x")
+
       x.map(queryResults => {
         println(s"Query Results : $queryResults")
 
         val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
 
-        val found             = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
-        val notFound          = extractByType[NotFound, JsNumber](queryResults)(mapToId)
-        val wrongJsonSchema   = extractByType[WrongJsonSchema, JsNumber](queryResults)(mapToId)
-        val malformedJson     = extractByType[MalformedJson, JsNumber](queryResults)(mapToId)
+        val found = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
+        val notFound = extractByType[NotFound, JsNumber](queryResults)(mapToId)
+        val wrongJsonSchema = extractByType[WrongJsonSchema, JsNumber](queryResults)(mapToId)
+        val malformedJson = extractByType[MalformedJson, JsNumber](queryResults)(mapToId)
 
         val result =
           JsObject(Seq(
@@ -67,7 +71,12 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit exec: Ex
           ))
 
         Ok(result)
-      })
+      }).recover {
+        case err: Throwable => {
+          Logger.error(s"Failed to complete request:\n${err.getStackTrace.mkString("\n")}")
+          InternalServerError("There was an error handling your request. Please try again")
+        }
+      }
     })
 
     comicsResult.merge

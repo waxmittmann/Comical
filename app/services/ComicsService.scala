@@ -36,9 +36,7 @@ trait ComicsService {
 }
 
 @Singleton
-class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
-
-  val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
+class ComicsServiceImpl @Inject() (configuration: play.api.Configuration, wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
 
   override def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
     comicIds.toList
@@ -59,15 +57,28 @@ class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, c
     id: Int,
     requestUrl: String
   ): Future[ComicQueryResult] = {
-    wsClient.url(requestUrl).execute().map(response => {
-      if (response.status == 200) {
-        val queryResult = processResponse(id, response)
-        cache(queryResult)
-        queryResult
+    Try {
+      println("tryin")
+      val s = wsClient.url(requestUrl)
+      val t = s.execute()
+      println("tried")
+      t
+    } match {
+      case Failure(exception) => {
+        println("failed")
+        Future.failed(exception)
       }
-      else
-        NotFound(id)
-    })
+
+      case Success(future) => future.map(response => {
+          if (response.status == 200) {
+            val queryResult = processResponse(id, response)
+            cache(queryResult)
+            queryResult
+          }
+          else
+            NotFound(id)
+        })
+    }
   }
 
   //Todo: Maybe should cache NotFound's too
@@ -83,6 +94,8 @@ class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, c
     }
   }
 
+  //Todo: Should separate out 404 results that are actual 'no page here' since
+  //otherwise if marvel changes the url we will just get NotFounds for everything
   protected def processResponse(id: Int, response: WSResponse): ComicQueryResult = {
     Try(Json.parse(response.body)) match {
       case Failure(exception) => MalformedJson(id, response.body)
