@@ -7,12 +7,16 @@ import play.api._
 import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
 import play.twirl.api.Html
 import services.ComicsService
-import services.ComicsService.{WrongJsonSchema, ComicQueryResult, Failed, Found, NotFound}
-
+import services.ComicsService.{ComicQueryResult, Failed, Found, NotFound, WrongJsonSchema}
+import cats._
+import cats.instances.all._
+import cats.syntax.either._
+import cats.instances.either._
 /**
  * This controller creates an `Action` that demonstrates how to write
  * simple asynchronous code in a controller. It uses a timer to
@@ -27,12 +31,82 @@ import services.ComicsService.{WrongJsonSchema, ComicQueryResult, Failed, Found,
 class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
 
   def comics = Action.async { implicit request =>
-    request.queryString
-      .get("comicIds")
-      .map(params => {
+    val r1: Either[Future[Result], Seq[String]] =
+      Either.fromOption(
+        request.queryString.get("comicIds"),
+        Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids"))
+      )
+
+    val r2 =
+      r1.flatMap(comicIdQueryString =>
+        // Todo: Find the util for this, Either(Try(...)) doesn't seem to work
+        Try(comicIdQueryString.map(_.toInt)) match {
+          case Failure(_) => Left(Future.successful(BadRequest("comicIds could not be parsed to an array of ints.")))
+          case Success(value) => Right(value)
+        }
+      )
+
+    val r3 = r2.map(comicIds => {
+      val x: Future[Seq[ComicQueryResult]] = comicsService.get(comicIds)
+
+      x.map(li => {
+        val found: Seq[JsValue] =
+          li.flatMap(_ match {
+            case v : Found => Some(v)
+            case _ => None
+          }).map(_.comicJson.value)
+
+        val notFound: Seq[JsNumber] =
+          li
+            .flatMap(_ match {
+              case v: NotFound => Some(v)
+              case _ => None
+            })
+            .map(nf => JsNumber(nf.id))
+
+        val badJson: Seq[JsNumber] =
+          li
+            .flatMap(_ match {
+              case v: WrongJsonSchema => Some(v)
+              case _ => None
+            })
+            .map(nf => JsNumber(nf.id))
+
+        val failed: Seq[JsNumber] =
+          li
+            .flatMap(_ match {
+              case v: Failed => Some(v)
+              case _ => None
+            })
+            .map(nf => JsNumber(nf.id))
+
+        val result =
+          JsObject(Seq(
+            "data" -> JsArray(found),
+            "success" -> JsBoolean(failed.size == 0),
+
+            "notFound" -> JsArray(notFound),
+            "badJson" -> JsArray(badJson),
+            "failed" -> JsArray(failed)
+          ))
+        Ok(result)
+      })
+    })
+    r3.merge
+
+/*
+    Either.fromOption(request.queryString.get("comicIds"), Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids")))
+      .map(comicIdQueryString =>
+        // Todo: Find the util for this, Either(Try(...)) doesn't seem to work
+        Try(comicIdQueryString.map(_.toInt)) match {
+          case Failure(_) => Left(BadRequest("comicIds could not be parsed to an array of ints."))
+          case Success(value) => Right(value)
+        }
+      )
+      .map(comicIds => {
         println(s"Params: $params")
 
-        val x: Future[List[ComicQueryResult]] = comicsService.get(List(42882, 41530, 999999999, 60754))
+        val x: Future[List[ComicQueryResult]] = comicsService.get(comicIds)
 
         x.map(li => {
           val found: List[JsValue] =
@@ -77,7 +151,8 @@ class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: Comic
           Ok(result)
         })
       })
-     .getOrElse(Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids")))
+      */
+     //.getOrElse(Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids")))
   }
 
   /**

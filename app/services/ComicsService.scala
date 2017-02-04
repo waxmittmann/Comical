@@ -39,8 +39,8 @@ class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)
     path
   }
 
-  def get(comicIds: List[Int]): Future[List[ComicQueryResult]] =
-    comicIds.map(id => {
+  def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
+    comicIds.toList.map(id => {
       val requestUrl = apiUrl(id.toString)
       getFromMarvel(id, requestUrl)
     }).sequence[Future, ComicQueryResult]
