@@ -29,15 +29,22 @@ class ComicsServiceSpec extends PlaySpec {
   /**
     * Utility methods
     */
-  def comicsService(ws: MockWS, mockCache: CacheApi = alwaysEmptyCache) = {
-    new ComicsServiceImpl(ws, mockMarvelService, mockCache)(play.api.libs.concurrent.Execution.Implicits.defaultContext, null)
+  val partiallyMockedUrlService = new UrlServiceImpl {
+    override protected def apiKeysUrlPart: String = apiKeysPart
   }
 
-  val mockMarvelService: MarvelService = {
-    val mockMarvelService = MockitoSugar.mock[MarvelService]
-    when(mockMarvelService.apiKeysUrlPart) thenReturn apiKeysPart
-    mockMarvelService
+  def comicsService(ws: MockWS, mockCache: CacheApi = alwaysEmptyCache) = {
+    new ComicsServiceImpl(ws, partiallyMockedUrlService, mockCache)(play.api.libs.concurrent.Execution.Implicits.defaultContext, null)
   }
+
+
+//  val mockMarvelService: UrlService = {
+//    val partiallyMockedUrlService = new UrlServiceImpl {
+//      override protected def apiKeysUrlPart: String = apiKeysPart
+//    }
+//
+//    mockMarvelService
+//  }
 
   def createValidJson(uniqueValue: Int): MarvelResponse = {
     val results =
