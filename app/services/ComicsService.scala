@@ -57,28 +57,15 @@ class ComicsServiceImpl @Inject() (configuration: play.api.Configuration, wsClie
     id: Int,
     requestUrl: String
   ): Future[ComicQueryResult] = {
-    Try {
-      println("tryin")
-      val s = wsClient.url(requestUrl)
-      val t = s.execute()
-      println("tried")
-      t
-    } match {
-      case Failure(exception) => {
-        println("failed")
-        Future.failed(exception)
+    wsClient.url(requestUrl).execute().map(response => {
+      if (response.status == 200) {
+        val queryResult = processResponse(id, response)
+        cache(queryResult)
+        queryResult
       }
-
-      case Success(future) => future.map(response => {
-          if (response.status == 200) {
-            val queryResult = processResponse(id, response)
-            cache(queryResult)
-            queryResult
-          }
-          else
-            NotFound(id)
-        })
-    }
+      else
+        NotFound(id)
+    })
   }
 
   //Todo: Maybe should cache NotFound's too

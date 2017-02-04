@@ -17,7 +17,6 @@ import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound,
 
 @Singleton
 class ComicsController @Inject()(configuration: play.api.Configuration, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
-  //val maxQueriesPerRequest = 50
   val maxQueriesPerRequest = configuration.getInt("comical.maxQueriesPerRequest").get
 
   def index: Action[AnyContent] = Action {
@@ -46,11 +45,7 @@ class ComicsController @Inject()(configuration: play.api.Configuration, comicsSe
       )
 
     val comicsResult = comicIdsOrBadRequest.map(comicIds => {
-      val x: Future[Seq[ComicQueryResult]] = comicsService.get(comicIds)
-
-      println(s"Got future: $x")
-
-      x.map(queryResults => {
+      comicsService.get(comicIds).map(queryResults => {
         println(s"Query Results : $queryResults")
 
         val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
