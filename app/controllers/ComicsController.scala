@@ -45,13 +45,15 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit exec: Ex
     val comicsResult = comicIdsOrBadRequest.map(comicIds => {
       val x: Future[Seq[ComicQueryResult]] = comicsService.get(comicIds)
 
-      x.map(li => {
+      x.map(queryResults => {
+        println(s"Query Results : $queryResults")
+
         val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
 
-        val found             = extractByType[Found, JsValue](li)(v => v.comicJson.value)
-        val notFound          = extractByType[NotFound, JsNumber](li)(mapToId)
-        val wrongJsonSchema   = extractByType[WrongJsonSchema, JsNumber](li)(mapToId)
-        val malformedJson     = extractByType[MalformedJson, JsNumber](li)(mapToId)
+        val found             = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
+        val notFound          = extractByType[NotFound, JsNumber](queryResults)(mapToId)
+        val wrongJsonSchema   = extractByType[WrongJsonSchema, JsNumber](queryResults)(mapToId)
+        val malformedJson     = extractByType[MalformedJson, JsNumber](queryResults)(mapToId)
 
         val result =
           JsObject(Seq(
