@@ -7,12 +7,13 @@ import play.api._
 import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
 import play.twirl.api.Html
 import services.ComicsService
-import services.ComicsService.{ComicQueryResult, Failed, Found, NotFound, WrongJsonSchema}
+import services.ComicsService.{ComicQueryResult, MalformedJson, Found, NotFound, WrongJsonSchema}
 import cats._
 import cats.instances.all._
 import cats.syntax.either._
@@ -31,150 +32,58 @@ import cats.instances.either._
 class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
 
   def comics = Action.async { implicit request =>
-    val r1: Either[Future[Result], Seq[String]] =
+    println(s"QS: ${request.queryString}")
+
+    val queryStringOrBadRequest: Either[Future[Result], Seq[String]] =
       Either.fromOption(
         request.queryString.get("comicIds"),
         Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids"))
       )
 
-    val r2 =
-      r1.flatMap(comicIdQueryString =>
+    val comicIdsOrBadRequest =
+      queryStringOrBadRequest.flatMap(comicIdQueryString => {
         // Todo: Find the util for this, Either(Try(...)) doesn't seem to work
-        Try(comicIdQueryString.map(_.toInt)) match {
-          case Failure(_) => Left(Future.successful(BadRequest("comicIds could not be parsed to an array of ints.")))
+        Try(comicIdQueryString(0).split(",").toSeq.map(_.toInt)) match {
+          case Failure(err) => Left(Future.successful(BadRequest(s"comicIds ($comicIdQueryString) could not be parsed to an array of ints: $err")))
           case Success(value) => Right(value)
-        }
+        }}
       )
 
-    val r3 = r2.map(comicIds => {
+    val comicsResult = comicIdsOrBadRequest.map(comicIds => {
       val x: Future[Seq[ComicQueryResult]] = comicsService.get(comicIds)
 
       x.map(li => {
-        val found: Seq[JsValue] =
-          li.flatMap(_ match {
-            case v : Found => Some(v)
-            case _ => None
-          }).map(_.comicJson.value)
+        val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
 
-        val notFound: Seq[JsNumber] =
-          li
-            .flatMap(_ match {
-              case v: NotFound => Some(v)
-              case _ => None
-            })
-            .map(nf => JsNumber(nf.id))
-
-        val badJson: Seq[JsNumber] =
-          li
-            .flatMap(_ match {
-              case v: WrongJsonSchema => Some(v)
-              case _ => None
-            })
-            .map(nf => JsNumber(nf.id))
-
-        val failed: Seq[JsNumber] =
-          li
-            .flatMap(_ match {
-              case v: Failed => Some(v)
-              case _ => None
-            })
-            .map(nf => JsNumber(nf.id))
+        val found             = extractByType[Found, JsValue](li)(v => v.comicJson.value)
+        val notFound          = extractByType[NotFound, JsNumber](li)(mapToId)
+        val wrongJsonSchema   = extractByType[WrongJsonSchema, JsNumber](li)(mapToId)
+        val malformedJson     = extractByType[MalformedJson, JsNumber](li)(mapToId)
 
         val result =
           JsObject(Seq(
             "data" -> JsArray(found),
-            "success" -> JsBoolean(failed.size == 0),
+            "success" -> JsBoolean(malformedJson.size == 0),
 
             "notFound" -> JsArray(notFound),
-            "badJson" -> JsArray(badJson),
-            "failed" -> JsArray(failed)
+            "badJsonSchema" -> JsArray(wrongJsonSchema),
+            "malformedJson" -> JsArray(malformedJson)
           ))
+
         Ok(result)
       })
     })
-    r3.merge
 
-/*
-    Either.fromOption(request.queryString.get("comicIds"), Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids")))
-      .map(comicIdQueryString =>
-        // Todo: Find the util for this, Either(Try(...)) doesn't seem to work
-        Try(comicIdQueryString.map(_.toInt)) match {
-          case Failure(_) => Left(BadRequest("comicIds could not be parsed to an array of ints."))
-          case Success(value) => Right(value)
-        }
-      )
-      .map(comicIds => {
-        println(s"Params: $params")
+    comicsResult.merge
+  }
 
-        val x: Future[List[ComicQueryResult]] = comicsService.get(comicIds)
-
-        x.map(li => {
-          val found: List[JsValue] =
-            li.flatMap(_ match {
-              case v : Found => Some(v)
-              case _ => None
-            }).map(_.comicJson.value)
-
-          val notFound: List[JsNumber] =
-            li
-              .flatMap(_ match {
-                case v: NotFound => Some(v)
-                case _ => None
-              })
-              .map(nf => JsNumber(nf.id))
-
-          val badJson: List[JsNumber] =
-            li
-              .flatMap(_ match {
-                case v: WrongJsonSchema => Some(v)
-                case _ => None
-              })
-              .map(nf => JsNumber(nf.id))
-
-          val failed: List[JsNumber] =
-            li
-              .flatMap(_ match {
-                case v: Failed => Some(v)
-                case _ => None
-              })
-              .map(nf => JsNumber(nf.id))
-
-          val result =
-            JsObject(Seq(
-              "data" -> JsArray(found),
-              "success" -> JsBoolean(failed.size == 0),
-
-              "notFound" -> JsArray(notFound),
-              "badJson" -> JsArray(badJson),
-              "failed" -> JsArray(failed)
-            ))
-          Ok(result)
-        })
+  protected def extractByType[S: ClassTag, T](
+    results: Seq[ComicQueryResult]
+  )(fn: S => T): Seq[T] = {
+    results
+      .flatMap(_ match {
+        case v: S => Some(fn(v))
+        case _ => None
       })
-      */
-     //.getOrElse(Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids")))
   }
-
-  /**
-   * Create an Action that returns a plain text message after a delay
-   * of 1 second.
-   *
-   * The configuration in the `routes` file means that this method
-   * will be called when the application receives a `GET` request with
-   * a path of `/message`.
-   */
-  def message = Action.async {
-    getFutureMessage(1.second).map { msg => Ok(msg) }
-  }
-
-//  def getComics = Action.async {
-//
-//  }
-
-  private def getFutureMessage(delayTime: FiniteDuration): Future[String] = {
-    val promise: Promise[String] = Promise[String]()
-    actorSystem.scheduler.scheduleOnce(delayTime) { promise.success("Hi!") }
-    promise.future
-  }
-
 }

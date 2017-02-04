@@ -163,7 +163,7 @@ class ComicsServiceSpec extends PlaySpec {
     val comicsService = new ComicsService(ws, mockMarvelService)(play.api.libs.concurrent.Execution.Implicits.defaultContext)
     val expectedResult = Set(
       ComicsService.Found(JsDefined(validJson.queryPartOnly)),
-      ComicsService.Failed(2, invalidJson)
+      ComicsService.MalformedJson(2, invalidJson)
     )
 
     //When

@@ -6,7 +6,7 @@ import javax.inject._
 
 import play.api.libs.json.{JsDefined, JsUndefined, Json}
 import play.api.libs.ws.WSResponse
-import services.ComicsService.{WrongJsonSchema, ComicQueryResult, Failed, Found, NotFound}
+import services.ComicsService.{WrongJsonSchema, ComicQueryResult, MalformedJson, Found, NotFound}
 import play.api.libs.ws.WSClient
 import redis.RedisClient
 import cats.{Monad, Traverse}
@@ -15,18 +15,20 @@ import cats.instances.all._
 import play.api.Logger
 
 object ComicsService {
-  sealed trait ComicQueryResult
-  case class Found(comicJson: JsDefined) extends ComicQueryResult
+  sealed trait ComicQueryResult {
+    val id: Int
+  }
+  case class Found(id: Int, comicJson: JsDefined) extends ComicQueryResult
   case class NotFound(id: Int) extends ComicQueryResult
   case class WrongJsonSchema(id: Int, badJson: JsDefined) extends ComicQueryResult
-  case class Failed(id: Int, failResponse: String) extends ComicQueryResult
+  case class MalformedJson(id: Int, failResponse: String) extends ComicQueryResult
 }
 
 @Singleton
 class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)(implicit ec: ExecutionContext) {
 
-  implicit val akkaSystem = akka.actor.ActorSystem()
-  val redis = RedisClient()
+//  implicit val akkaSystem = akka.actor.ActorSystem()
+//  val redis = RedisClient()
   val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
 
   def apiUrl(
@@ -63,11 +65,11 @@ class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)
     response: WSResponse
   ): ComicQueryResult = {
     Try(Json.parse(response.body)) match {
-      case Failure(exception) => Failed(id, response.body)
+      case Failure(exception) => MalformedJson(id, response.body)
       case Success(jsonBody) => {
         val dataPart = jsonBody \ "data" \ "results" \ 0
         dataPart match {
-          case json@JsDefined(_) => Found(json)
+          case json@JsDefined(_) => Found(id, json)
           case _: JsUndefined => WrongJsonSchema(id, JsDefined(jsonBody))
         }
       }
