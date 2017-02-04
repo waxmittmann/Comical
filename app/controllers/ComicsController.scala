@@ -26,53 +26,58 @@ import services.ComicsService.{WrongJsonSchema, ComicQueryResult, Failed, Found,
 @Singleton
 class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
 
-  def comics = Action.async {
-    val x: Future[List[ComicQueryResult]] = comicsService.get(List(42882, 41530, 999999999, 60754))
+  def comics = Action.async { implicit request =>
+    request.queryString
+      .get("comicIds")
+      .map(params => {
+        println(s"Params: $params")
 
-    x.map(li => {
-      val found: List[JsValue] =
-        li.flatMap(_ match {
-          case v : Found => Some(v)
-          case _ => None
-        }).map(_.comicJson.value)
+        val x: Future[List[ComicQueryResult]] = comicsService.get(List(42882, 41530, 999999999, 60754))
 
-      val notFound: List[JsNumber] =
-        li
-          .flatMap(_ match {
-            case v: NotFound => Some(v)
-            case _ => None
-          })
-          .map(nf => JsNumber(nf.id))
+        x.map(li => {
+          val found: List[JsValue] =
+            li.flatMap(_ match {
+              case v : Found => Some(v)
+              case _ => None
+            }).map(_.comicJson.value)
 
-      val badJson: List[JsNumber] =
-        li
-          .flatMap(_ match {
-            case v: WrongJsonSchema => Some(v)
-            case _ => None
-          })
-          .map(nf => JsNumber(nf.id))
+          val notFound: List[JsNumber] =
+            li
+              .flatMap(_ match {
+                case v: NotFound => Some(v)
+                case _ => None
+              })
+              .map(nf => JsNumber(nf.id))
 
-      val failed: List[JsNumber] =
-        li
-          .flatMap(_ match {
-            case v: Failed => Some(v)
-            case _ => None
-          })
-          .map(nf => JsNumber(nf.id))
+          val badJson: List[JsNumber] =
+            li
+              .flatMap(_ match {
+                case v: WrongJsonSchema => Some(v)
+                case _ => None
+              })
+              .map(nf => JsNumber(nf.id))
 
-      val result =
-        JsObject(Seq(
-          "data" -> JsArray(found),
-          "success" -> JsBoolean(failed.size == 0),
+          val failed: List[JsNumber] =
+            li
+              .flatMap(_ match {
+                case v: Failed => Some(v)
+                case _ => None
+              })
+              .map(nf => JsNumber(nf.id))
 
-          "notFound" -> JsArray(notFound),
-          "badJson" -> JsArray(badJson),
-          "failed" -> JsArray(failed)
-        ))
-      Ok(result)
-    })
+          val result =
+            JsObject(Seq(
+              "data" -> JsArray(found),
+              "success" -> JsBoolean(failed.size == 0),
 
-    //x.map(li => Ok(Html(li.map(i => s"<div>$i</div><div>-------</div>").mkString(""))))
+              "notFound" -> JsArray(notFound),
+              "badJson" -> JsArray(badJson),
+              "failed" -> JsArray(failed)
+            ))
+          Ok(result)
+        })
+      })
+     .getOrElse(Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids")))
   }
 
   /**
