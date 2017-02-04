@@ -6,32 +6,56 @@ import javax.inject._
 
 import play.api.libs.json.{JsDefined, JsUndefined, Json}
 import play.api.libs.ws.WSResponse
-import services.ComicsService.{WrongJsonSchema, ComicQueryResult, MalformedJson, Found, NotFound}
 import play.api.libs.ws.WSClient
 import redis.RedisClient
 import cats.{Monad, Traverse}
 import cats.syntax.traverse._
 import cats.instances.all._
+import com.google.inject.ImplementedBy
 import play.api.Logger
+import services.ComicsService.{ComicQueryResult, MalformedJson, WrongJsonSchema, NotFound, Found}
+//import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound, WrongJsonSchema}
 
 object ComicsService {
   sealed trait ComicQueryResult {
     val id: Int
   }
+
   case class Found(id: Int, comicJson: JsDefined) extends ComicQueryResult
   case class NotFound(id: Int) extends ComicQueryResult
   case class WrongJsonSchema(id: Int, badJson: JsDefined) extends ComicQueryResult
   case class MalformedJson(id: Int, failResponse: String) extends ComicQueryResult
 }
 
+//sealed trait ComicQueryResult {
+//  val id: Int
+//}
+//
+//case class Found(id: Int, comicJson: JsDefined) extends ComicQueryResult
+//case class NotFound(id: Int) extends ComicQueryResult
+//case class WrongJsonSchema(id: Int, badJson: JsDefined) extends ComicQueryResult
+//case class MalformedJson(id: Int, failResponse: String) extends ComicQueryResult
+
+
+@ImplementedBy(classOf[ComicsServiceImpl])
+trait ComicsService {
+  def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]]
+}
+
 @Singleton
-class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)(implicit ec: ExecutionContext) {
+class ComicsServiceImpl @Inject() (wsClient: WSClient, marvelService: MarvelService)(implicit ec: ExecutionContext) extends ComicsService {
 
 //  implicit val akkaSystem = akka.actor.ActorSystem()
 //  val redis = RedisClient()
   val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
 
-  def apiUrl(
+  override def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
+    comicIds.toList.map(id => {
+      val requestUrl = apiUrl(id.toString)
+      getFromMarvel(id, requestUrl)
+    }).sequence[Future, ComicQueryResult]
+
+  protected def apiUrl(
     query: String,
     subPath: String = "comics"
   ): String = {
@@ -41,13 +65,7 @@ class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)
     path
   }
 
-  def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
-    comicIds.toList.map(id => {
-      val requestUrl = apiUrl(id.toString)
-      getFromMarvel(id, requestUrl)
-    }).sequence[Future, ComicQueryResult]
-
-  def getFromMarvel(
+  protected def getFromMarvel(
     id: Int,
     requestUrl: String
   ): Future[ComicQueryResult] = {
@@ -60,7 +78,7 @@ class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)
     })
   }
 
-  def processResponse(
+  protected def processResponse(
     id: Int,
     response: WSResponse
   ): ComicQueryResult = {

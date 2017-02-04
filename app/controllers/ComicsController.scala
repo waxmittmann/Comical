@@ -10,15 +10,16 @@ import scala.util.{Failure, Success, Try}
 
 import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
 import services.ComicsService
-import services.ComicsService.{ComicQueryResult, MalformedJson, Found, NotFound, WrongJsonSchema}
 import cats.syntax.either._
+import com.google.inject.ImplementedBy
+import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound, WrongJsonSchema}
+
 
 @Singleton
-class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
-
+class ComicsController @Inject()(comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
   val maxQueriesPerRequest = 50
 
-  def comics = Action.async { implicit request =>
+  def comics: Action[AnyContent] = Action.async { implicit request =>
     println(s"QS: ${request.queryString}")
 
     val queryStringOrBadRequest: Either[Future[Result], Seq[String]] =
