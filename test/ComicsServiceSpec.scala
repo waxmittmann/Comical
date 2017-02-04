@@ -2,15 +2,14 @@ import scala.concurrent.duration.Duration
 
 import mockws.MockWS
 import org.scalatestplus.play.PlaySpec
-import play.api.mvc.{Action, EssentialAction}
+import play.api.mvc.{Action, EssentialAction, Result}
 import org.scalatest.{FreeSpec, Matchers, OptionValues}
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.ws.WSClient
-import play.api.mvc.Action
 import play.api.mvc.Results._
 import play.api.test.Helpers._
-import scala.concurrent.{Await, Future}
-import scala.util.Try
+import scala.concurrent.{Await, Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 import org.mockito.Mockito._
 import org.scalatest._
@@ -161,7 +160,6 @@ class ComicsServiceSpec extends PlaySpec {
 
   "return NotFound for 404 responses" in {
     //Given
-
     val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
     val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
 
@@ -187,7 +185,6 @@ class ComicsServiceSpec extends PlaySpec {
 
   "return Failed for requests that contain malformed json" in {
     //Given
-
     val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
     val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
 
@@ -210,5 +207,24 @@ class ComicsServiceSpec extends PlaySpec {
 
     //Then
     result mustEqual(expectedResult)
+  }
+
+  "return a failed future if one of the remote requests fails" in {
+    //Given
+    val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
+    val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
+
+    val validJson   = createValidJson(1)
+    val exception: RuntimeException = new RuntimeException("Well that didn't work!")
+
+    val ws: MockWS = MockWS {
+      case (GET, `comic1Url`) => Action { Ok(validJson.jsonResponse) }
+      case (GET, `comic2Url`) => Action.async { Future.failed(exception) }
+    }
+
+    val comicsService = new ComicsService(ws, mockMarvelService)(play.api.libs.concurrent.Execution.Implicits.defaultContext)
+
+    //When / Then
+    Try(Await.result(comicsService.get(List(1, 2)), Duration.Inf)) mustEqual(Failure(exception))
   }
 }
