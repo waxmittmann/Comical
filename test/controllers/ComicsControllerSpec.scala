@@ -11,7 +11,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import org.mockito.Mockito._
 import play.api.libs.json.{JsArray, JsBoolean, JsDefined, JsNumber, JsObject, JsString, JsValue}
 import play.api.test.Helpers._
-import services.ComicsService.{Found, MalformedJson, NotFound, WrongJsonSchema}
+import services.ComicsService.{Found, FoundInCache, MalformedJson, NotFound, WrongJsonSchema}
 
 class ComicsControllerSpec extends PlaySpec {
   def setup(): (ComicsService, ComicsController) = {
@@ -65,10 +65,10 @@ class ComicsControllerSpec extends PlaySpec {
       //Given
       val validComicJson = JsObject(Seq("a" -> JsNumber(1)))
       val comicResult = Seq(
-        Found(1, JsDefined(validComicJson)),
+        FoundInCache(1, validComicJson),
         NotFound(2),
         MalformedJson(3, "Malformed!"),
-        WrongJsonSchema(4, JsDefined(JsObject(Seq("b" -> JsString("wrong")))))
+        WrongJsonSchema(4, JsObject(Seq("b" -> JsString("wrong"))))
       )
       when(mockComicsService.get(Seq(1,2,3,4))) thenReturn(Future.successful(comicResult))
 

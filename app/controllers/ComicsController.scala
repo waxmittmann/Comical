@@ -1,6 +1,5 @@
 package controllers
 
-import akka.actor.ActorSystem
 import javax.inject._
 
 import play.api.mvc._
@@ -11,7 +10,6 @@ import scala.util.{Failure, Success, Try}
 import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
 import services.ComicsService
 import cats.syntax.either._
-import com.google.inject.ImplementedBy
 import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound, WrongJsonSchema}
 
 

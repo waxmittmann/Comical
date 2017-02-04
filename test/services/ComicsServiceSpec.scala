@@ -8,21 +8,30 @@ import mockws.MockWS
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatestplus.play.PlaySpec
+import play.api.cache.CacheApi
 import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json.{JsArray, JsDefined, JsNumber, JsObject, JsString}
+import play.api.libs.json.{JsArray, JsDefined, JsNumber, JsObject, JsString, JsValue}
 import play.api.mvc.Action
 import play.api.mvc.Results._
 import play.api.test.Helpers._
+import org.mockito.Matchers._
 
 class ComicsServiceSpec extends PlaySpec {
 
   val apiKeysPart: String = "apiKeysPart=something"
 
+  val alwaysEmptyCache: CacheApi = {
+    val cache = MockitoSugar.mock[CacheApi]
+    when(cache.get[JsValue](any[String]())(any[scala.reflect.ClassTag[play.api.libs.json.JsValue]])) thenReturn None
+    cache
+  }
+
   /**
     * Utility methods
     */
-  def comicsService(ws: MockWS) =
-    new ComicsServiceImpl(ws, mockMarvelService)(play.api.libs.concurrent.Execution.Implicits.defaultContext)
+  def comicsService(ws: MockWS, mockCache: CacheApi = alwaysEmptyCache) = {
+    new ComicsServiceImpl(ws, mockMarvelService, mockCache)(play.api.libs.concurrent.Execution.Implicits.defaultContext, null)
+  }
 
   val mockMarvelService: MarvelService = {
     val mockMarvelService = MockitoSugar.mock[MarvelService]
@@ -83,9 +92,9 @@ class ComicsServiceSpec extends PlaySpec {
       }
 
       val expectedResult = Set(
-        ComicsService.Found(comicId1, JsDefined(validJson1.queryPartOnly)),
-        ComicsService.Found(comicId2, JsDefined(validJson2.queryPartOnly)),
-        ComicsService.Found(comicId3, JsDefined(validJson3.queryPartOnly))
+        ComicsService.FoundRemotely(comicId1, validJson1.queryPartOnly),
+        ComicsService.FoundRemotely(comicId2, validJson2.queryPartOnly),
+        ComicsService.FoundRemotely(comicId3, validJson3.queryPartOnly)
       )
 
       //When
@@ -110,8 +119,8 @@ class ComicsServiceSpec extends PlaySpec {
     }
 
     val expectedResult = Set(
-      ComicsService.Found(1, JsDefined(validJson.queryPartOnly)),
-      ComicsService.WrongJsonSchema(2, JsDefined(jsonLackingResult))
+      ComicsService.FoundRemotely(1, validJson.queryPartOnly),
+      ComicsService.WrongJsonSchema(2, jsonLackingResult)
     )
 
     //When
@@ -134,7 +143,7 @@ class ComicsServiceSpec extends PlaySpec {
     }
 
     val expectedResult = Set(
-      ComicsService.Found(1, JsDefined(validJson.queryPartOnly)),
+      ComicsService.FoundRemotely(1, validJson.queryPartOnly),
       ComicsService.NotFound(2)
     )
 
@@ -160,7 +169,7 @@ class ComicsServiceSpec extends PlaySpec {
     }
 
     val expectedResult = Set(
-      ComicsService.Found(comicId1, JsDefined(validJson.queryPartOnly)),
+      ComicsService.FoundRemotely(comicId1, validJson.queryPartOnly),
       ComicsService.MalformedJson(comicId2, invalidJson)
     )
 
