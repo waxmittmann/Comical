@@ -2,8 +2,7 @@ import scala.concurrent.duration.Duration
 
 import mockws.MockWS
 import org.scalatestplus.play.PlaySpec
-import play.api.mvc.Action
-import services.{ComicsService, MarvelService, MarvelServiceImpl}
+import play.api.mvc.{Action, EssentialAction}
 import org.scalatest.{FreeSpec, Matchers, OptionValues}
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.ws.WSClient
@@ -19,16 +18,41 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatestplus.play._
 import play.api.libs.json.{JsArray, JsDefined, JsNumber, JsObject, JsString}
 import play.libs.Json
+import services.{ComicsService, MarvelService}
 import services.ComicsService.ComicQueryResult
 
 class ComicsServiceSpec extends PlaySpec {
 
+  val apiKeysPart: String = "apiKeysPart=something"
+  val mockMarvelService: MarvelService = MockitoSugar.mock[MarvelService]
+  when(mockMarvelService.apiKeysUrlPart) thenReturn apiKeysPart
+
+  sealed trait MockResponseStatus
+  case object OK extends MockResponseStatus
+
+  case class MockResponse(
+    comicId: Int,
+    status: MockResponseStatus
+  )
+
+  //def mockWs(responses: Seq[MockResponse]): MockWS = {
+  def mockWs(responses: Map[String, (String, MockResponseStatus)]): MockWS = {
+    val ws: MockWS = MockWS {
+      case (GET, url) => {
+        val responseData = responses.get(url).get
+        Action {
+          responseData._2 match {
+            case OK => Ok(responseData._1)
+          }
+        }
+      }
+    }
+    ws
+  }
+
   "ComicsService" should {
     "pickle a george" in {
       //Given
-      val mockMarvelService: MarvelService = MockitoSugar.mock[MarvelService]
-      val apiKeysPart: String = "apiKeysPart=something"
-      when(mockMarvelService.apiKeysUrlPart) thenReturn apiKeysPart
 
       val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
       val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
@@ -39,11 +63,17 @@ class ComicsServiceSpec extends PlaySpec {
       val validJson2 = createValidJson(2)
       val validJson3 = createValidJson(3)
 
-      val ws = MockWS {
+      val ws: MockWS = MockWS {
         case (GET, `comic1Url`) => Action { Ok(validJson1.jsonResponse) }
         case (GET, `comic2Url`) => Action { Ok(validJson2.jsonResponse) }
         case (GET, `comic3Url`) => Action { Ok(validJson3.jsonResponse) }
       }
+
+//      val ws: MockWS = mockWs(Map(
+//        comic1Url -> (validJson1.jsonResponse.toString(), OK),
+//        comic2Url -> (validJson2.jsonResponse.toString(), OK),
+//        comic3Url -> (validJson3.jsonResponse.toString(), OK)
+//      ))
 
       val comicsService = new ComicsService(ws, mockMarvelService)(play.api.libs.concurrent.Execution.Implicits.defaultContext)
       val expectedResult = Set(
