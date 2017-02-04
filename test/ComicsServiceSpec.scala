@@ -2,23 +2,17 @@ import scala.concurrent.duration.Duration
 
 import mockws.MockWS
 import org.scalatestplus.play.PlaySpec
-import play.api.mvc.{Action, EssentialAction, Result}
-import org.scalatest.{FreeSpec, Matchers, OptionValues}
+import play.api.mvc.Action
 import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.ws.WSClient
 import play.api.mvc.Results._
 import play.api.test.Helpers._
-import scala.concurrent.{Await, Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Try}
 
 import org.mockito.Mockito._
-import org.scalatest._
 import org.scalatest.mock.MockitoSugar
-import org.scalatestplus.play._
 import play.api.libs.json.{JsArray, JsDefined, JsNumber, JsObject, JsString}
-import play.libs.Json
 import services.{ComicsService, MarvelService}
-import services.ComicsService.ComicQueryResult
 
 class ComicsServiceSpec extends PlaySpec {
 
@@ -67,21 +61,6 @@ class ComicsServiceSpec extends PlaySpec {
     status: MockResponseStatus
   )
 
-  //def mockWs(responses: Seq[MockResponse]): MockWS = {
-  def mockWs(responses: Map[String, (String, MockResponseStatus)]): MockWS = {
-    val ws: MockWS = MockWS {
-      case (GET, url) => {
-        val responseData = responses.get(url).get
-        Action {
-          responseData._2 match {
-            case OK => Ok(responseData._1)
-          }
-        }
-      }
-    }
-    ws
-  }
-
   /**
     * Tests
     */
@@ -97,25 +76,11 @@ class ComicsServiceSpec extends PlaySpec {
       val (validJson1, validJson2, validJson3) =
         (createValidJson(comicId1), createValidJson(comicId2), createValidJson(comicId3))
 
-//      val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
-//      val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
-//      val comic3Url = "http://gateway.marvel.com:80/v1/public/comics/3?" + apiKeysPart
-
-//      val validJson1 = createValidJson(1)
-//      val validJson2 = createValidJson(2)
-//      val validJson3 = createValidJson(3)
-
       val ws: MockWS = MockWS {
         case (GET, `comic1Url`) => Action { Ok(validJson1.jsonResponse) }
         case (GET, `comic2Url`) => Action { Ok(validJson2.jsonResponse) }
         case (GET, `comic3Url`) => Action { Ok(validJson3.jsonResponse) }
       }
-
-//      val ws: MockWS = mockWs(Map(
-//        comic1Url -> (validJson1.jsonResponse.toString(), OK),
-//        comic2Url -> (validJson2.jsonResponse.toString(), OK),
-//        comic3Url -> (validJson3.jsonResponse.toString(), OK)
-//      ))
 
       val expectedResult = Set(
         ComicsService.Found(JsDefined(validJson1.queryPartOnly)),
@@ -133,7 +98,6 @@ class ComicsServiceSpec extends PlaySpec {
 
   "return BadJson for 200 responses containing well-formed json missing the data.results attribute" in {
     //Given
-
     val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
     val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
 
@@ -225,6 +189,7 @@ class ComicsServiceSpec extends PlaySpec {
     val comicsService = new ComicsService(ws, mockMarvelService)(play.api.libs.concurrent.Execution.Implicits.defaultContext)
 
     //When / Then
+    //Todo: Sure there's a nice utility method for this somewhere in the framework
     Try(Await.result(comicsService.get(List(1, 2)), Duration.Inf)) mustEqual(Failure(exception))
   }
 }
