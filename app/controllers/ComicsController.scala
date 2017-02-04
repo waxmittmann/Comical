@@ -8,10 +8,10 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 
-import play.api.libs.json.{JsArray, JsNumber, JsObject, JsValue}
+import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
 import play.twirl.api.Html
 import services.ComicsService
-import services.ComicsService.{BadJson, ComicQueryResult, Found, NotFound}
+import services.ComicsService.{BadJson, ComicQueryResult, Failed, Found, NotFound}
 
 /**
  * This controller creates an `Action` that demonstrates how to write
@@ -52,11 +52,22 @@ class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: Comic
           })
           .map(nf => JsNumber(nf.id))
 
+      val failed: List[JsNumber] =
+        li
+          .flatMap(_ match {
+            case v: Failed => Some(v)
+            case _ => None
+          })
+          .map(nf => JsNumber(nf.id))
+
       val result =
         JsObject(Seq(
           "data" -> JsArray(found),
+          "success" -> JsBoolean(failed.size == 0),
+
           "notFound" -> JsArray(notFound),
-          "badJson" -> JsArray(badJson)
+          "badJson" -> JsArray(badJson),
+          "failed" -> JsArray(failed)
         ))
       Ok(result)
     })
