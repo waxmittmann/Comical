@@ -6,7 +6,7 @@ import javax.inject._
 
 import play.api.libs.json.{JsDefined, JsUndefined, Json}
 import play.api.libs.ws.WSResponse
-import services.ComicsService.{BadJson, ComicQueryResult, Failed, Found, NotFound}
+import services.ComicsService.{WrongJsonSchema, ComicQueryResult, Failed, Found, NotFound}
 import play.api.libs.ws.WSClient
 import redis.RedisClient
 import cats.{Monad, Traverse}
@@ -18,7 +18,7 @@ object ComicsService {
   sealed trait ComicQueryResult
   case class Found(comicJson: JsDefined) extends ComicQueryResult
   case class NotFound(id: Int) extends ComicQueryResult
-  case class BadJson(id: Int, badJson: String) extends ComicQueryResult
+  case class WrongJsonSchema(id: Int, badJson: JsDefined) extends ComicQueryResult
   case class Failed(id: Int, failResponse: String) extends ComicQueryResult
 }
 
@@ -68,7 +68,7 @@ class ComicsService @Inject() (wsClient: WSClient, marvelService: MarvelService)
         val dataPart = jsonBody \ "data" \ "results" \ 0
         dataPart match {
           case json@JsDefined(_) => Found(json)
-          case _: JsUndefined => BadJson(id, response.body)
+          case _: JsUndefined => WrongJsonSchema(id, JsDefined(jsonBody))
         }
       }
     }

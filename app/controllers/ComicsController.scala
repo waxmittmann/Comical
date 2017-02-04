@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
 import play.twirl.api.Html
 import services.ComicsService
-import services.ComicsService.{BadJson, ComicQueryResult, Failed, Found, NotFound}
+import services.ComicsService.{WrongJsonSchema, ComicQueryResult, Failed, Found, NotFound}
 
 /**
  * This controller creates an `Action` that demonstrates how to write
@@ -47,7 +47,7 @@ class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: Comic
       val badJson: List[JsNumber] =
         li
           .flatMap(_ match {
-            case v: BadJson => Some(v)
+            case v: WrongJsonSchema => Some(v)
             case _ => None
           })
           .map(nf => JsNumber(nf.id))
