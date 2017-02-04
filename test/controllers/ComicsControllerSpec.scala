@@ -97,4 +97,7 @@ class ComicsControllerSpec extends PlaySpec {
       content mustEqual(expectedJson)
     }
   }
+
+  //Todo: Test for sensible (ie 500) response if ComicsService returns a failed
+  //future
 }
