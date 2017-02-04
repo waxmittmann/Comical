@@ -48,7 +48,23 @@ class ComicsControllerSpec extends PlaySpec {
     }
 
     "return BadRequest if the comicsId parameter cannot be parsed to a list of integers" in new Context {
+      //Given
+      when(mockComicsService.get(Seq(1))) thenReturn(Future.successful(Seq()))
 
+      val req: Request[AnyContent] = FakeRequest(
+        method = "GET",
+        path = "http://www.whatevs.com/comics?comicIds=1a"
+      )
+
+      //When
+      val result = comicsController.comics()(req)
+
+      //Then
+      val content = contentAsString(result)
+      val rStatus: Int = status(result)
+
+      rStatus mustEqual(400)
+      content mustEqual("""comicIds (ArrayBuffer(1a)) could not be parsed to an array of ints: java.lang.NumberFormatException: For input string: "1a"""")
     }
 
     "return Ok and a json result describing the result returned from ComicsService" in new Context {
