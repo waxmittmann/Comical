@@ -24,7 +24,7 @@ import services.ComicsService.{BadJson, ComicQueryResult, Found, NotFound}
  * asynchronous code.
  */
 @Singleton
-class AsyncController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
+class ComicsController @Inject() (actorSystem: ActorSystem, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
 
   def comics = Action.async {
     val x: Future[List[ComicQueryResult]] = comicsService.get(List(42882, 41530, 999999999, 60754))

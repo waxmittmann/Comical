@@ -2,6 +2,7 @@ package services
 
 import scala.concurrent.{ExecutionContext, Future}
 import java.security.MessageDigest
+import java.time.{LocalDateTime, ZoneOffset}
 import java.util.Properties
 import javax.inject._
 
@@ -30,8 +31,8 @@ class ComicsService @Inject() (wsClient: WSClient)(implicit ec: ExecutionContext
   val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
 
   def apiKeysUrlPart = {
+    val ts = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
     //val ts = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-    val ts = 1
     val digest = MessageDigest.getInstance("MD5").digest(s"$ts$privateKey$publicKey".getBytes) //.toString
     val hash = digest.map("%02x".format(_)).mkString
 
@@ -61,11 +62,6 @@ class ComicsService @Inject() (wsClient: WSClient)(implicit ec: ExecutionContext
     println(s"Path: $path")
     path
   }
-
-  case class Comic(
-    title: String,
-    id: String
-  )
 
   def get(comicIds: List[Int]): Future[List[ComicQueryResult]] = {
     println("Called Get")

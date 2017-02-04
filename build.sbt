@@ -13,7 +13,8 @@ libraryDependencies ++= Seq(
   ws,
   "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.1" % Test,
   "org.typelevel" %% "cats" % "0.9.0",
-  "com.github.etaty" %% "rediscala" % "1.8.0"
+  "com.github.etaty" %% "rediscala" % "1.8.0",
+  "de.leanovate.play-mockws" % "play-mockws_2.11" % "2.5.1"
 )
 
 
