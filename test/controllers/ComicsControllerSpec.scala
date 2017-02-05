@@ -69,7 +69,7 @@ class ComicsControllerSpec extends PlaySpec {
         MalformedJson(3, "Malformed!"),
         WrongJsonSchema(4, JsObject(Seq("b" -> JsString("wrong"))))
       )
-      when(mockComicsService.comics(Seq(1,2,3,4))) thenReturn(Future.successful(comicResult))
+      when(mockComicsService.comics(List(1,2,3,4))) thenReturn(Future.successful(comicResult))
 
       val expectedJson =
         JsObject(Seq(
@@ -96,7 +96,4 @@ class ComicsControllerSpec extends PlaySpec {
       content mustEqual(expectedJson)
     }
   }
-
-  //Todo: Test for sensible (ie 500) response if ComicsService returns a failed
-  //future
 }

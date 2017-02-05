@@ -34,14 +34,14 @@ object ComicsService {
 
 @ImplementedBy(classOf[ComicsServiceImpl])
 trait ComicsService {
-  def comics(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]]
+  def comics(comicIds: List[Int]): Future[Seq[ComicQueryResult]]
 }
 
 @Singleton
 class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
 
-  override def comics(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
-    comicIds.toList
+  override def comics(comicIds: List[Int]): Future[Seq[ComicQueryResult]] =
+    comicIds
       .map(comic)
       .sequence[Future, ComicQueryResult]
 
@@ -54,29 +54,48 @@ class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, c
       .get[JsValue](id.toString)
       .map(json => Future.successful(FoundInCache(id, json)))
 
-  protected def comicRemotely(id: Int, requestUrl: String): Future[ComicQueryResult] = {
-    wsClient.url(requestUrl).execute().flatMap(response => {
-      response.status match {
-        case Http.Status.OK => {
-          val queryResult = processResponse(id, response)
-          putInCache(queryResult)
-          Future.successful(queryResult)
-        }
+  protected def comicRemotely(id: Int, requestUrl: String): Future[ComicQueryResult] =
+    for {
+      response    <- wsClient.url(requestUrl).execute()
+      queryResult <- resultFromResponse(id, response)
+    } yield queryResult
 
-        //Todo: This is lame, we should try parsing the json and analysing the response...
-        case Http.Status.NOT_FOUND if response.body == notFoundJsonBody =>
-          Future.successful(NotFound(id))
+  protected def resultFromResponse(id: Int, response: WSResponse): Future[ComicQueryResult] =
+    response.status match {
+      case Http.Status.OK => {
+        val queryResult = processResponse(id, response)
+        putInCache(queryResult)
+        Future.successful(queryResult)
+      }
 
-        case status => {
-          Logger.error(s"Request to marvel failed with status $status and body:\n${response.body}")
-          Future.failed(new RuntimeException(s"Request to marvel failed with status $status and body:\n${response.body}"))
+      //Todo: This is lame, we should try parsing the json and analysing the response...
+      case Http.Status.NOT_FOUND if response.body == notFoundJsonBody =>
+        Future.successful(NotFound(id))
+
+      case otherStatus => {
+        Logger.error(s"Request to marvel failed with status $otherStatus and body:\n${response.body}")
+        Future.failed(new RuntimeException(s"Request to marvel failed with status $otherStatus and body:\n${response.body}"))
+      }
+    }
+
+  protected def processResponse(id: Int, response: WSResponse): ComicQueryResult =
+    Try(Json.parse(response.body)) match {
+      case Failure(exception) =>
+        MalformedJson(id, response.body)
+
+      // Assuming that there will only ever be a single result in the result
+      // set as the ids should be unique (right? right??)
+      case Success(jsonBody) => {
+        val dataPart = jsonBody \ "data" \ "results" \ 0
+        dataPart match {
+          case json@JsDefined(_)  => FoundRemotely(id, json.value)
+          case _: JsUndefined     => WrongJsonSchema(id, jsonBody)
         }
       }
-    })
-  }
+    }
 
   //Todo: Maybe should cache NotFound's too
-  protected def putInCache(queryResult: ComicQueryResult): Unit = {
+  protected def putInCache(queryResult: ComicQueryResult): Unit =
     queryResult match {
       case f: Found => {
         Logger.debug(s"Caching Found with ${f.id}")
@@ -86,20 +105,4 @@ class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, c
         Logger.debug(s"Not caching non-success result $r")
       }
     }
-  }
-
-  protected def processResponse(id: Int, response: WSResponse): ComicQueryResult = {
-    Try(Json.parse(response.body)) match {
-      case Failure(exception) => MalformedJson(id, response.body)
-      case Success(jsonBody) => {
-        // Assuming that there will only ever be a single result in the result
-        // set as the ids should be unique (right? right??)
-        val dataPart = jsonBody \ "data" \ "results" \ 0
-        dataPart match {
-          case json@JsDefined(_) => FoundRemotely(id, json.value)
-          case _: JsUndefined => WrongJsonSchema(id, jsonBody)
-        }
-      }
-    }
-  }
 }
