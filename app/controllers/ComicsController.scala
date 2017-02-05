@@ -69,7 +69,7 @@ class ComicsController @Inject()(configuration: play.api.Configuration, comicsSe
       }).recover {
         case err: Throwable => {
           Logger.error(s"Failed to complete request:\n${err.getStackTrace.mkString("\n")}")
-          InternalServerError("There was an error handling your request. Please try again")
+          InternalServerError("There was an error handling your request. Please try again.")
         }
       }
     })

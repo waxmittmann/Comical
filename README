@@ -1,9 +1,0 @@
-
-
-Things to talk about:
-- why url-encoded params rather than json for requests
-- why play
-- why no (few) functional tests
-
-Things to worry about:
-- UTF8 (especially with my byte string deserializer)
