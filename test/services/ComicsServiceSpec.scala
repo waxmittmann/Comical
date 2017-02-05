@@ -112,7 +112,7 @@ class ComicsServiceSpec extends PlaySpec {
         )
 
         //When
-        val result = Await.result(comicsService(ws).get(List(comicId1, comicId2, comicId3)), Duration.Inf).toSet
+        val result = Await.result(comicsService(ws).comics(List(comicId1, comicId2, comicId3)), Duration.Inf).toSet
 
         //Then
         result mustEqual (expectedResult)
@@ -142,7 +142,7 @@ class ComicsServiceSpec extends PlaySpec {
       )
 
       //When
-      val result = Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf).toSet
+      val result = Await.result(comicsService(ws).comics(List(1, 2)), Duration.Inf).toSet
 
       //Then
       result mustEqual (expectedResult)
@@ -170,7 +170,7 @@ class ComicsServiceSpec extends PlaySpec {
       )
 
       //When
-      val result = Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf).toSet
+      val result = Await.result(comicsService(ws).comics(List(1, 2)), Duration.Inf).toSet
 
       //Then
       result mustEqual (expectedResult)
@@ -200,7 +200,7 @@ class ComicsServiceSpec extends PlaySpec {
       )
 
       //When
-      val result = Await.result(comicsService(ws).get(List(comicId1, comicId2)), Duration.Inf).toSet
+      val result = Await.result(comicsService(ws).comics(List(comicId1, comicId2)), Duration.Inf).toSet
 
       //Then
       result mustEqual (expectedResult)
@@ -225,7 +225,7 @@ class ComicsServiceSpec extends PlaySpec {
 
       //When / Then
       //Todo: Sure there's a nice utility method for this somewhere in the framework
-      Try(Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf)) mustEqual (Failure(exception))
+      Try(Await.result(comicsService(ws).comics(List(1, 2)), Duration.Inf)) mustEqual (Failure(exception))
     }
 
     "return a failed future if one of the responses is a 404 without the correct body" in {
@@ -244,7 +244,7 @@ class ComicsServiceSpec extends PlaySpec {
       }
       val expectedErrorMessage = s"Request to marvel failed with status 404 and body:\n$notFoundBody"
 
-      Try(Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf)).failed.get.getMessage mustEqual expectedErrorMessage
+      Try(Await.result(comicsService(ws).comics(List(1, 2)), Duration.Inf)).failed.get.getMessage mustEqual expectedErrorMessage
     }
 
     "return a failed future if one of the responses is a non-200 and non-404, or a 404 with a different body" in {
@@ -264,7 +264,7 @@ class ComicsServiceSpec extends PlaySpec {
         }
         val expectedErrorMessage = s"Request to marvel failed with status ${errorCode.header.status} and body:\n$errorBody"
 
-        Try(Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf)).failed.get.getMessage mustEqual expectedErrorMessage
+        Try(Await.result(comicsService(ws).comics(List(1, 2)), Duration.Inf)).failed.get.getMessage mustEqual expectedErrorMessage
       }
     }
   }
@@ -301,7 +301,7 @@ class ComicsServiceSpec extends PlaySpec {
     )
 
     //When
-    val result = Await.result(comicsService(ws, cache).get(List(1, 2)), Duration.Inf).toSet
+    val result = Await.result(comicsService(ws, cache).comics(List(1, 2)), Duration.Inf).toSet
 
     //Then
     result mustEqual (expectedResult)

@@ -10,7 +10,7 @@ import util.ConfigReader.getString
 
 @ImplementedBy(classOf[UrlServiceImpl])
 trait UrlService {
-  def apiUrl(query: String): String
+  def comicUrl(query: String): String
 }
 
 @Singleton
@@ -19,7 +19,7 @@ class UrlServiceImpl @Inject()(implicit configuration: play.api.Configuration) e
   val publicKey = getString("comical.marvel.publickey", "application.conf is missing the public key")
   val privateKey = getString("comical.marvel.privatekey", "application.conf is missing the private key")
 
-  def apiUrl(query: String): String = {
+  def comicUrl(query: String): String = {
     val path = s"${baseUrl}comics/$query?$apiKeysUrlPart"
     Logger.debug(s"Generated Api: $path")
     path

@@ -62,7 +62,7 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit configur
 
   protected def comicsResponse(comicIds: Seq[Int]): Future[Result] =
     for {
-      queryResults  <- comicsService.get(comicIds)
+      queryResults  <- comicsService.comics(comicIds)
       response      = searchResponse(queryResults)
     } yield response
 

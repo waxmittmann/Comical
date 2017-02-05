@@ -8,7 +8,6 @@ import akka.actor.ActorSystem
 import play.api.libs.json.{JsDefined, JsUndefined, JsValue, Json}
 import play.api.libs.ws.WSResponse
 import play.api.libs.ws.WSClient
-import cats.{Monad, Traverse}
 import cats.syntax.traverse._
 import cats.instances.all._
 import com.google.inject.ImplementedBy
@@ -35,31 +34,27 @@ object ComicsService {
 
 @ImplementedBy(classOf[ComicsServiceImpl])
 trait ComicsService {
-  def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]]
+  def comics(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]]
 }
 
 @Singleton
 class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
 
-  override def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
+  override def comics(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
     comicIds.toList
-      .map(comicDetails)
+      .map(comic)
       .sequence[Future, ComicQueryResult]
 
-  protected def comicDetails(id: Int): Future[ComicQueryResult] = {
-      cacheClient
-        .get[JsValue](id.toString)
-        .map(json => FoundInCache(id, json))
-        .fold {
-          val requestUrl = urlService.apiUrl(id.toString)
-          getFromMarvel(id, requestUrl)
-        }(v => Future.successful(v))
-  }
+  protected def comic(id: Int): Future[ComicQueryResult] =
+    comicFromCache(id)
+      .getOrElse(comicRemotely(id, urlService.comicUrl(id.toString)))
 
-  protected def getFromMarvel(
-    id: Int,
-    requestUrl: String
-  ): Future[ComicQueryResult] = {
+  protected def comicFromCache(id: Int): Option[Future[ComicQueryResult]] =
+    cacheClient
+      .get[JsValue](id.toString)
+      .map(json => Future.successful(FoundInCache(id, json)))
+
+  protected def comicRemotely(id: Int, requestUrl: String): Future[ComicQueryResult] = {
     wsClient.url(requestUrl).execute().flatMap(response => {
       response.status match {
         case Http.Status.OK => {
