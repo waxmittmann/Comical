@@ -32,10 +32,8 @@ class ComicsServiceSpec extends PlaySpec {
   /**
     * Utility methods
     */
-
   val partiallyMockedUrlService = {
     val apiConfig = play.api.Configuration.from(Map(
-      //"marvel.maxQueriesPerRequest" -> marvelUrl
       "comical.marvel.url" -> marvelUrl,
       "comical.marvel.privatekey" -> "unused",
       "comical.marvel.publickey" -> "unused"
@@ -49,15 +47,6 @@ class ComicsServiceSpec extends PlaySpec {
   def comicsService(ws: MockWS, mockCache: CacheApi = alwaysEmptyCache) = {
     new ComicsServiceImpl(ws, partiallyMockedUrlService, mockCache)(play.api.libs.concurrent.Execution.Implicits.defaultContext, null)
   }
-
-
-//  val mockMarvelService: UrlService = {
-//    val partiallyMockedUrlService = new UrlServiceImpl {
-//      override protected def apiKeysUrlPart: String = apiKeysPart
-//    }
-//
-//    mockMarvelService
-//  }
 
   def createValidJson(uniqueValue: Int): MarvelResponse = {
     val results =
@@ -136,8 +125,6 @@ class ComicsServiceSpec extends PlaySpec {
       //Given
       val comic1Url = comicUrl(1)
       val comic2Url = comicUrl(2)
-//      val comic1Url = "$marvelUrl1?" + apiKeysPart
-//      val comic2Url = "$marvelUrl2?" + apiKeysPart
 
       val validJson = createValidJson(1)
       val jsonLackingResult = JsObject(Seq("someAttribute" -> JsNumber(1)))
@@ -165,8 +152,6 @@ class ComicsServiceSpec extends PlaySpec {
 
     "return NotFound for 404 responses" in {
       //Given
-//      val comic1Url = "$marvelUrl1?" + apiKeysPart
-//      val comic2Url = "$marvelUrl2?" + apiKeysPart
       val comic1Url = comicUrl(1)
       val comic2Url = comicUrl(2)
 
@@ -225,8 +210,6 @@ class ComicsServiceSpec extends PlaySpec {
 
     "return a failed future if one of the remote requests fails" in {
       //Given
-//      val comic1Url = "$marvelUrl1?" + apiKeysPart
-//      val comic2Url = "$marvelUrl2?" + apiKeysPart
       val comic1Url = comicUrl(1)
       val comic2Url = comicUrl(2)
 

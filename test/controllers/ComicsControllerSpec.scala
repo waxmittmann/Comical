@@ -3,29 +3,21 @@ package controllers
 import scala.concurrent.Future
 
 import org.scalatestplus.play.PlaySpec
-import services.{ComicsService, ComicsServiceImpl}
+import services.ComicsServiceImpl
 import org.scalatest.mock.MockitoSugar
 import play.api.mvc.AnyContentAsEmpty
 import play.api.test.FakeRequest
 import play.api.libs.concurrent.Execution.Implicits._
 import org.mockito.Mockito._
-import play.api.libs.json.{JsArray, JsBoolean, JsDefined, JsNumber, JsObject, JsString, JsValue}
+import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsString, JsValue}
 import play.api.test.Helpers._
-import services.ComicsService.{Found, FoundInCache, MalformedJson, NotFound, WrongJsonSchema}
+import services.ComicsService.{FoundInCache, MalformedJson, NotFound, WrongJsonSchema}
 
 class ComicsControllerSpec extends PlaySpec {
-//  def setup(): (ComicsService, ComicsController) = {
-//    val mockComicsService = MockitoSugar.mock[ComicsService]
-//    (mockComicsService, new ComicsController(mockComicsService))
-//  }
-
   trait Context {
     val apiConfig = play.api.Configuration.from(Map(
       "comical.maxQueriesPerRequest" -> 50
-      //"marvel.api.url" -> "http://gateway.marvel.com:80/v1/public/"
     ))
-
-    //println(apiConfig.getString("marvel.url"))
 
     val mockComicsService = MockitoSugar.mock[ComicsServiceImpl]
     val comicsController = new ComicsController(apiConfig, mockComicsService)
