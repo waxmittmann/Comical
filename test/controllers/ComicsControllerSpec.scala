@@ -14,14 +14,21 @@ import play.api.test.Helpers._
 import services.ComicsService.{Found, FoundInCache, MalformedJson, NotFound, WrongJsonSchema}
 
 class ComicsControllerSpec extends PlaySpec {
-  def setup(): (ComicsService, ComicsController) = {
-    val mockComicsService = MockitoSugar.mock[ComicsService]
-    (mockComicsService, new ComicsController(mockComicsService))
-  }
+//  def setup(): (ComicsService, ComicsController) = {
+//    val mockComicsService = MockitoSugar.mock[ComicsService]
+//    (mockComicsService, new ComicsController(mockComicsService))
+//  }
 
   trait Context {
+    val apiConfig = play.api.Configuration.from(Map(
+      "comical.maxQueriesPerRequest" -> 50
+      //"marvel.api.url" -> "http://gateway.marvel.com:80/v1/public/"
+    ))
+
+    //println(apiConfig.getString("marvel.url"))
+
     val mockComicsService = MockitoSugar.mock[ComicsServiceImpl]
-    val comicsController = new ComicsController(mockComicsService)
+    val comicsController = new ComicsController(apiConfig, mockComicsService)
   }
 
   "ComicsController GET" should {

@@ -16,9 +16,12 @@ import play.api.mvc.Results._
 import play.api.test.Helpers._
 import org.mockito.Matchers.{eq => mockitoEq, _}
 
+//Todo: Needs tests for requests that succeed but return non-200/404 error statuses
+//or a 404 with an incorrect body
 class ComicsServiceSpec extends PlaySpec {
 
   val apiKeysPart: String = "apiKeysPart=something"
+  val marvelUrl: String = "http://marvel.test.com"
 
   val alwaysEmptyCache: CacheApi = {
     val cache = MockitoSugar.mock[CacheApi]
@@ -29,8 +32,18 @@ class ComicsServiceSpec extends PlaySpec {
   /**
     * Utility methods
     */
-  val partiallyMockedUrlService = new UrlServiceImpl {
-    override protected def apiKeysUrlPart: String = apiKeysPart
+
+  val partiallyMockedUrlService = {
+    val apiConfig = play.api.Configuration.from(Map(
+      //"marvel.maxQueriesPerRequest" -> marvelUrl
+      "comical.marvel.url" -> marvelUrl,
+      "comical.marvel.privatekey" -> "unused",
+      "comical.marvel.publickey" -> "unused"
+    ))
+
+    new UrlServiceImpl(apiConfig) {
+      override protected def apiKeysUrlPart: String = apiKeysPart
+    }
   }
 
   def comicsService(ws: MockWS, mockCache: CacheApi = alwaysEmptyCache) = {
@@ -65,7 +78,7 @@ class ComicsServiceSpec extends PlaySpec {
   }
 
   def comicUrl(id: Int) =
-    s"http://gateway.marvel.com:80/v1/public/comics/$id?" + apiKeysPart
+    s"${marvelUrl}comics/$id?" + apiKeysPart
 
   case class MarvelResponse(jsonResponse: JsObject, queryPartOnly: JsObject)
 
@@ -121,8 +134,10 @@ class ComicsServiceSpec extends PlaySpec {
 
     "return BadJson for 200 responses containing well-formed json missing the data.results attribute" in {
       //Given
-      val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
-      val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
+      val comic1Url = comicUrl(1)
+      val comic2Url = comicUrl(2)
+//      val comic1Url = "$marvelUrl1?" + apiKeysPart
+//      val comic2Url = "$marvelUrl2?" + apiKeysPart
 
       val validJson = createValidJson(1)
       val jsonLackingResult = JsObject(Seq("someAttribute" -> JsNumber(1)))
@@ -150,8 +165,10 @@ class ComicsServiceSpec extends PlaySpec {
 
     "return NotFound for 404 responses" in {
       //Given
-      val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
-      val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
+//      val comic1Url = "$marvelUrl1?" + apiKeysPart
+//      val comic2Url = "$marvelUrl2?" + apiKeysPart
+      val comic1Url = comicUrl(1)
+      val comic2Url = comicUrl(2)
 
       val validJson = createValidJson(1)
 
@@ -208,8 +225,10 @@ class ComicsServiceSpec extends PlaySpec {
 
     "return a failed future if one of the remote requests fails" in {
       //Given
-      val comic1Url = "http://gateway.marvel.com:80/v1/public/comics/1?" + apiKeysPart
-      val comic2Url = "http://gateway.marvel.com:80/v1/public/comics/2?" + apiKeysPart
+//      val comic1Url = "$marvelUrl1?" + apiKeysPart
+//      val comic2Url = "$marvelUrl2?" + apiKeysPart
+      val comic1Url = comicUrl(1)
+      val comic2Url = comicUrl(2)
 
       val validJson = createValidJson(1)
       val exception = new RuntimeException("Well that didn't work!")

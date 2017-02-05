@@ -37,7 +37,7 @@ trait ComicsService {
 }
 
 @Singleton
-class ComicsServiceImpl @Inject() (configuration: play.api.Configuration, wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
+class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
 
   val notFoundJsonBody = """{"code":404,"status":"We couldn't find that comic_issue"}"""
 
