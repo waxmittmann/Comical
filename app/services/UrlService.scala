@@ -1,9 +1,7 @@
 package services
 
-import scala.concurrent.ExecutionContext
 import java.security.MessageDigest
 import java.time.{LocalDateTime, ZoneOffset}
-import java.util.Properties
 import javax.inject.{Inject, Singleton}
 
 import com.google.inject.ImplementedBy
@@ -16,12 +14,15 @@ trait UrlService {
 
 @Singleton
 class UrlServiceImpl @Inject()(configuration: play.api.Configuration) extends UrlService {
-  val (publicKey, privateKey) = readApiKeys
-//  val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
-
-  //val baseUrl = s"http://gateway.marvel.com:80/v1/public/"
-  val baseUrl = configuration.getString("comical.marvel.url").get
-
+  //Todo: DRY reading / error-throwing
+  //Todo: Should check somewhere specifically for api errors from invalid public or private key
+  //right now that just winds up as all NotFound responses
+  val baseUrl = configuration.getString("comical.marvel.url")
+    .getOrElse(throw new RuntimeException("application.conf is missing the marvel api url (comical.marvel.url)"))
+  val publicKey = configuration.getString("comical.marvel.publickey")
+    .getOrElse(throw new RuntimeException("application.conf is missing the public key (comical.marvel.publickey)"))
+  val privateKey = configuration.getString("comical.marvel.privatekey")
+    .getOrElse(throw new RuntimeException("application.conf is missing the private key (comical.marvel.privatekey)"))
 
   def apiUrl(query: String): String = {
     val path = s"${baseUrl}comics/$query?$apiKeysUrlPart"
@@ -35,16 +36,5 @@ class UrlServiceImpl @Inject()(configuration: play.api.Configuration) extends Ur
     val hash = digest.map("%02x".format(_)).mkString
 
     s"ts=$ts&apikey=$publicKey&hash=$hash"
-  }
-
-  protected def readApiKeys: (String, String) = {
-    val filename = "api.properties"
-    val input = getClass().getClassLoader().getResourceAsStream(filename)
-    if (input == null) {
-      throw new RuntimeException("Sorry, unable to find " + filename)
-    }
-    val prop = new Properties()
-    prop.load(input)
-    (prop.getProperty("publickey"), prop.getProperty("privatekey"))
   }
 }

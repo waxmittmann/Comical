@@ -1,11 +1,12 @@
 # Setup
-First, in the 'conf' folder copy or move 'example.api.properties' to 'api.properties'
-and add a valid private and public key.
+First, in the 'conf' folder in application.conf, find the blank 
+*comical.marvel.publickey* and *comical.marvel.privatekey* entries and enter 
+valid marvel api keys.
 
 Then start the server with 
 ```sbt "run"```. 
-By default, the server will come up
-at localhost:9000.
+By default, the server will come up at localhost:9000. Hitting '/' or '/comics'
+with a GET should produce a text message.
 
 # Making requests
 Hit the comics endpoint (/comics) with GET requests with a url-encoded comicIds parameter
