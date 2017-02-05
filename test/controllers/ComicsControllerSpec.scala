@@ -15,12 +15,12 @@ import services.ComicsService.{FoundInCache, MalformedJson, NotFound, WrongJsonS
 
 class ComicsControllerSpec extends PlaySpec {
   trait Context {
-    val apiConfig = play.api.Configuration.from(Map(
+    implicit val apiConfig = play.api.Configuration.from(Map(
       "comical.maxQueriesPerRequest" -> 50
     ))
 
     val mockComicsService = MockitoSugar.mock[ComicsServiceImpl]
-    val comicsController = new ComicsController(apiConfig, mockComicsService)
+    val comicsController = new ComicsController(mockComicsService)
   }
 
   "ComicsController GET" should {

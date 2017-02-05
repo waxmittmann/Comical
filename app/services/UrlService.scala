@@ -6,6 +6,7 @@ import javax.inject.{Inject, Singleton}
 
 import com.google.inject.ImplementedBy
 import play.api.Logger
+import util.ConfigReader.getString
 
 @ImplementedBy(classOf[UrlServiceImpl])
 trait UrlService {
@@ -13,16 +14,10 @@ trait UrlService {
 }
 
 @Singleton
-class UrlServiceImpl @Inject()(configuration: play.api.Configuration) extends UrlService {
-  //Todo: DRY reading / error-throwing
-  //Todo: Should check somewhere specifically for api errors from invalid public or private key
-  //right now that just winds up as all NotFound responses
-  val baseUrl = configuration.getString("comical.marvel.url")
-    .getOrElse(throw new RuntimeException("application.conf is missing the marvel api url (comical.marvel.url)"))
-  val publicKey = configuration.getString("comical.marvel.publickey")
-    .getOrElse(throw new RuntimeException("application.conf is missing the public key (comical.marvel.publickey)"))
-  val privateKey = configuration.getString("comical.marvel.privatekey")
-    .getOrElse(throw new RuntimeException("application.conf is missing the private key (comical.marvel.privatekey)"))
+class UrlServiceImpl @Inject()(implicit configuration: play.api.Configuration) extends UrlService {
+  val baseUrl = getString("comical.marvel.url", "application.conf is missing the marvel api url")
+  val publicKey = getString("comical.marvel.publickey", "application.conf is missing the public key")
+  val privateKey = getString("comical.marvel.privatekey", "application.conf is missing the private key")
 
   def apiUrl(query: String): String = {
     val path = s"${baseUrl}comics/$query?$apiKeysUrlPart"

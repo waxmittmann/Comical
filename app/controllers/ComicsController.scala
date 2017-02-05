@@ -5,7 +5,6 @@ import javax.inject._
 import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
-import scala.reflect.internal.Precedence
 import scala.util.{Failure, Success, Try}
 
 import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
@@ -13,11 +12,11 @@ import services.ComicsService
 import cats.syntax.either._
 import play.api.Logger
 import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound, WrongJsonSchema}
-
+import util.ConfigReader
 
 @Singleton
-class ComicsController @Inject()(configuration: play.api.Configuration, comicsService: ComicsService)(implicit exec: ExecutionContext) extends Controller {
-  val maxQueriesPerRequest = configuration.getInt("comical.maxQueriesPerRequest").get
+class ComicsController @Inject()(comicsService: ComicsService)(implicit configuration: play.api.Configuration, exec: ExecutionContext) extends Controller {
+  val maxQueriesPerRequest = ConfigReader.getInt("comical.maxQueriesPerRequest", "application.conf is missing maxQueriesPerRequest")
 
   def index: Action[AnyContent] = Action {
     Ok("This is a proxy for the marvel api. Hit /comics with a comicIds parameter containing a comma-separated list of ids.")
@@ -46,8 +45,6 @@ class ComicsController @Inject()(configuration: play.api.Configuration, comicsSe
 
     val comicsResult = comicIdsOrBadRequest.map(comicIds => {
       comicsService.get(comicIds).map(queryResults => {
-        println(s"Query Results : $queryResults")
-
         val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
 
         val found = extractByType[Found, JsValue](queryResults)(v => v.comicJson)

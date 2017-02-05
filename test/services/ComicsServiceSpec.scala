@@ -31,13 +31,13 @@ class ComicsServiceSpec extends PlaySpec {
     * Utility methods
     */
   val partiallyMockedUrlService = {
-    val apiConfig = play.api.Configuration.from(Map(
+    implicit val apiConfig = play.api.Configuration.from(Map(
       "comical.marvel.url" -> marvelUrl,
       "comical.marvel.privatekey" -> "unused",
       "comical.marvel.publickey" -> "unused"
     ))
 
-    new UrlServiceImpl(apiConfig) {
+    new UrlServiceImpl() {
       override protected def apiKeysUrlPart: String = apiKeysPart
     }
   }
