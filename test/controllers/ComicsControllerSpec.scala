@@ -2,16 +2,17 @@ package controllers
 
 import scala.concurrent.Future
 
-import org.scalatestplus.play.PlaySpec
-import services.ComicsServiceImpl
+import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.play.PlaySpec
+import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsString, JsValue}
 import play.api.mvc.AnyContentAsEmpty
 import play.api.test.FakeRequest
-import play.api.libs.concurrent.Execution.Implicits._
-import org.mockito.Mockito._
-import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsString, JsValue}
 import play.api.test.Helpers._
+
 import services.ComicsService.{FoundInCache, MalformedJson, NotFound, WrongJsonSchema}
+import services.ComicsServiceImpl
 
 class ComicsControllerSpec extends PlaySpec {
   trait Context {

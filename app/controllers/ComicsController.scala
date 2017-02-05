@@ -1,16 +1,16 @@
 package controllers
 
-import javax.inject._
-
-import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
+import javax.inject._
 
-import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
-import services.ComicsService
 import cats.syntax.either._
 import play.api.Logger
+import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsValue}
+import play.api.mvc._
+
+import services.ComicsService
 import services.ComicsService.{ComicQueryResult, Found, MalformedJson, NotFound, WrongJsonSchema}
 import util.ConfigReader
 
@@ -69,10 +69,12 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit configur
   def searchResponse(queryResults: Seq[ComicQueryResult]): Result = {
     val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
 
-    val found = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
-    val notFound = extractByType[NotFound, JsNumber](queryResults)(mapToId)
+    //Todo: Would be nice to push this up into the service to pass down as an object
+    // and serialize that
+    val found           = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
+    val notFound        = extractByType[NotFound, JsNumber](queryResults)(mapToId)
     val wrongJsonSchema = extractByType[WrongJsonSchema, JsNumber](queryResults)(mapToId)
-    val malformedJson = extractByType[MalformedJson, JsNumber](queryResults)(mapToId)
+    val malformedJson   = extractByType[MalformedJson, JsNumber](queryResults)(mapToId)
 
     val result =
       JsObject(Seq(

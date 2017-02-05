@@ -5,15 +5,15 @@ import scala.util.{Failure, Success, Try}
 import javax.inject._
 
 import akka.actor.ActorSystem
-import play.api.libs.json.{JsDefined, JsUndefined, JsValue, Json}
-import play.api.libs.ws.WSResponse
-import play.api.libs.ws.WSClient
-import cats.syntax.traverse._
 import cats.instances.all._
+import cats.syntax.traverse._
 import com.google.inject.ImplementedBy
 import play.api.Logger
 import play.api.cache.CacheApi
+import play.api.libs.json.{JsDefined, JsUndefined, JsValue, Json}
+import play.api.libs.ws.{WSClient, WSResponse}
 import play.mvc.Http
+
 import services.ComicsService.{ComicQueryResult, Found, FoundInCache, FoundRemotely, MalformedJson, NotFound, WrongJsonSchema, notFoundJsonBody}
 
 object ComicsService {

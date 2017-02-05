@@ -6,6 +6,7 @@ import javax.inject.{Inject, Singleton}
 
 import com.google.inject.ImplementedBy
 import play.api.Logger
+
 import util.ConfigReader.getString
 
 @ImplementedBy(classOf[UrlServiceImpl])

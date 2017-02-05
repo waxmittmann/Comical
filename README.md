@@ -1,3 +1,8 @@
+Comical
+-------
+A proxy that gets around the fact that the marvel api won't allow a query
+by multiple ids, that also caches things.
+
 # Setup
 First, in the 'conf' folder in application.conf, find the blank 
 *comical.marvel.publickey* and *comical.marvel.privatekey* entries and enter 
@@ -7,6 +12,11 @@ Then start the server with
 ```sbt "run"```. 
 By default, the server will come up at localhost:9000. Hitting '/' or '/comics'
 with a GET should produce a text message.
+
+# Graceful Shutdown on keypress
+The cache is in memory and so is everything else, a CTRL-C of the running 
+process should take everything down fine. Of course, it'd always be nice 
+to package it in docker...
 
 # Making requests
 Hit the comics endpoint (/comics) with GET requests with a url-encoded comicIds parameter
@@ -43,6 +53,11 @@ Example:
 }
 ```
 
+# Example requests
+(The server needs to be running for these, won't run off the web)
+[Single Id](http://localhost:9000/comics?comicIds=2)
+[Multiple Ids, comma (%2C) separated](http://localhost:9000/comics?comicIds=2323%2C1%2C2%2C3%2C4%2C9999999)
+
 ## For requests with a missing or invalid comicIds parameter, a 400 status and:
 ### When the parameter is missing
 ```
@@ -64,6 +79,8 @@ Too many items, please include at most $maxQueriesPerRequest ids
 There was an error handling your request. Please try again.
 ```
 
+# Features
+## 
 
 # Design decisions
 ## Play
@@ -87,3 +104,10 @@ It's nice and simple and sufficient for our usecase.
 # Todos / Extensions
 ## UTF8
 There might be problems with UTF8, I'm dealing with everything as plain strings
+
+## Monad Transformers
+EitherT with Future as a common return type to pass errors nicely.
+
+## Package it in docker
+Because that's nice, especially for a project such as this with absolutely 
+no state.
