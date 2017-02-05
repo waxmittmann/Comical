@@ -13,10 +13,29 @@ Then start the server with
 By default, the server will come up at localhost:9000. Hitting '/' or '/comics'
 with a GET should produce a text message.
 
-# Graceful Shutdown on keypress
-The cache is in memory and so is everything else, a CTRL-C of the running 
-process should take everything down fine. Of course, it'd always be nice 
-to package it in docker...
+# Creating a docker image
+*Note*: Docker must be installed!
+
+To create a docker image using the docker plugin 
+(see http://www.scala-sbt.org/sbt-native-packager/formats/docker.html),
+first run: 
+```sbt "docker:publishLocal"```
+
+then run it:
+```docker run --name comical -p 9000:9000 ${imageId}```
+
+You should now have a nice dockerized proxy running!
+
+To stop the dockerized app: 
+```docker stop comical```
+
+And to start it again:
+```docker start comical```
+
+*Note:*
+If there is an error relating to the play secret when running the container, run 
+```sbt "playGenerateSecret"```
+and then paste the resulting value into 'play.crypto.secret' in application.conf.
 
 # Making requests
 Hit the comics endpoint (/comics) with GET requests with a url-encoded comicIds parameter
@@ -80,7 +99,20 @@ There was an error handling your request. Please try again.
 ```
 
 # Features
-## 
+## Graceful Shutdown on keypress
+The cache is in memory and so is everything else, a CTRL-C of the running 
+process should take everything down fine. 
+
+Or even better, use the docker image and have everything nice and tidy
+inside its container.
+
+## Cache
+The play-default cache is used to cache results from the external api.
+Currently it's only caching 'found' results, but it should also be extended
+to cache not-found results.
+
+## Threads where required
+Scala futures + Play async
 
 # Design decisions
 ## Play
@@ -90,7 +122,8 @@ of extra plumbing, I decided to go with the kitchen sink (Play) instead. I gener
 prefer kitchen-sink frameworks for MVP-type applications to reduce setup cost.
 
 ## Why not parse the json from the marvel api into an internal data structure?
-We're actually just passing through that data. 
+If we parsed it, we'd have to worry about upstream format changes. 
+Since we're actually just passing through that data, why bother?  
 
 ## Why no end-to-end / proper functional tests?
 I decided to use time elsewhere as the application is simple enough so that I'm 
@@ -108,6 +141,5 @@ There might be problems with UTF8, I'm dealing with everything as plain strings
 ## Monad Transformers
 EitherT with Future as a common return type to pass errors nicely.
 
-## Package it in docker
-Because that's nice, especially for a project such as this with absolutely 
-no state.
+## Fix project name
+Fix all the project names that are still play-scala or whatever :P
