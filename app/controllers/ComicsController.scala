@@ -23,66 +23,74 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit configur
   }
 
   def comics: Action[AnyContent] = Action.async { implicit request =>
-    val queryStringOrBadRequest: Either[Future[Result], Seq[String]] =
-      Either.fromOption(
-        request.queryString.get("comicIds"),
-        Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids"))
-      )
+    // Get and parse the query string, then use the comic ids to make a request
+    // to ComicsService and create a response from that
+    val response = (for {
+      queryString   <- queryString(request)
+      comicIds      <- parse(queryString)
+      _             <- validateMaxIdsLimit(comicIds)
+    } yield
+      comicsResponse(comicIds)).merge
 
-    val comicIdsOrBadRequest =
-      queryStringOrBadRequest.flatMap(comicIdQueryString => {
-        // Todo: Find the util for this, Either(Try(...)) doesn't seem to work
-        Try(comicIdQueryString(0).split(",").toSeq.map(_.toInt)) match {
-          case Failure(err) => Left(Future.successful(BadRequest(s"comicIds ($comicIdQueryString) could not be parsed to an array of ints: $err")))
-          case Success(value) => Right(value)
-        }}
-      ).flatMap(comicIds =>
-        if (comicIds.length > maxQueriesPerRequest)
-          Left(Future.successful(BadRequest(s"Too many items, please include at most $maxQueriesPerRequest ids")))
-        else
-          Right(comicIds)
-      )
-
-    val comicsResult = comicIdsOrBadRequest.map(comicIds => {
-      comicsService.get(comicIds).map(queryResults => {
-        val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
-
-        val found = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
-        val notFound = extractByType[NotFound, JsNumber](queryResults)(mapToId)
-        val wrongJsonSchema = extractByType[WrongJsonSchema, JsNumber](queryResults)(mapToId)
-        val malformedJson = extractByType[MalformedJson, JsNumber](queryResults)(mapToId)
-
-        val result =
-          JsObject(Seq(
-            "data" -> JsArray(found),
-            "success" -> JsBoolean(malformedJson.size == 0),
-
-            "notFound" -> JsArray(notFound),
-            "badJsonSchema" -> JsArray(wrongJsonSchema),
-            "malformedJson" -> JsArray(malformedJson)
-          ))
-
-        Ok(result)
-      }).recover {
-        case err: Throwable => {
-          Logger.error(s"Failed to complete request:\n${err.getStackTrace.mkString("\n")}")
-          InternalServerError("There was an error handling your request. Please try again.")
-        }
+    //If the future fails, map it to an internal server error
+    response.recover {
+      case err: Throwable => {
+        Logger.error(s"Failed to complete request:\n${err.getStackTrace.mkString("\n")}")
+        InternalServerError("There was an error handling your request. Please try again.")
       }
-    })
-
-    comicsResult.merge
+    }
   }
 
-  protected def extractByType[S: ClassTag, T](
-    results: Seq[ComicQueryResult]
-  )(
-    fn: S => T
-  ): Seq[T] = {
+  protected def validateMaxIdsLimit(comicIds: Seq[Int]): Either[Future[Result], Seq[Int]] =
+    if (comicIds.length > maxQueriesPerRequest)
+      Left(Future.successful(BadRequest(s"Too many items, please include at most $maxQueriesPerRequest ids")))
+    else
+      Right(comicIds)
+
+  protected def parse(queryString: Seq[String]): Either[Future[Result], Seq[Int]] =
+    // Todo: Find the util for this, Either(Try(...)) doesn't seem to work
+    Try(queryString(0).split(",").toSeq.map(_.toInt)) match {
+      case Failure(err) => Left(Future.successful(BadRequest(s"comicIds ($queryString) could not be parsed to an array of ints: $err")))
+      case Success(value) => Right(value)
+    }
+
+  protected def queryString(request: Request[AnyContent]): Either[Future[Result], Seq[String]] =
+    Either.fromOption(
+      request.queryString.get("comicIds"),
+      Future.successful(BadRequest("Include a url-encoded comicIds parameter whose value is a list of comma-separated comic ids"))
+    )
+
+  protected def comicsResponse(comicIds: Seq[Int]): Future[Result] =
+    for {
+      queryResults  <- comicsService.get(comicIds)
+      response      = searchResponse(queryResults)
+    } yield response
+
+  def searchResponse(queryResults: Seq[ComicQueryResult]): Result = {
+    val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
+
+    val found = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
+    val notFound = extractByType[NotFound, JsNumber](queryResults)(mapToId)
+    val wrongJsonSchema = extractByType[WrongJsonSchema, JsNumber](queryResults)(mapToId)
+    val malformedJson = extractByType[MalformedJson, JsNumber](queryResults)(mapToId)
+
+    val result =
+      JsObject(Seq(
+        "data" -> JsArray(found),
+        "success" -> JsBoolean(malformedJson.size == 0),
+
+        "notFound" -> JsArray(notFound),
+        "badJsonSchema" -> JsArray(wrongJsonSchema),
+        "malformedJson" -> JsArray(malformedJson)
+      ))
+
+    Ok(result)
+  }
+
+  protected def extractByType[S: ClassTag, T](results: Seq[ComicQueryResult])(fn: S => T): Seq[T] =
     results
       .flatMap(_ match {
         case v: S => Some(fn(v))
         case _ => None
       })
-  }
 }
