@@ -162,7 +162,7 @@ class ComicsServiceSpec extends PlaySpec {
           Ok(validJson.jsonResponse)
         }
         case (GET, `comic2Url`) => Action {
-          NotFound("")
+          NotFound(ComicsService.notFoundJsonBody)
         }
       }
 

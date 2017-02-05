@@ -15,9 +15,11 @@ import com.google.inject.ImplementedBy
 import play.api.Logger
 import play.api.cache.CacheApi
 import play.mvc.Http
-import services.ComicsService.{ComicQueryResult, Found, FoundInCache, FoundRemotely, MalformedJson, NotFound, WrongJsonSchema}
+import services.ComicsService.{ComicQueryResult, Found, FoundInCache, FoundRemotely, MalformedJson, NotFound, WrongJsonSchema, notFoundJsonBody}
 
 object ComicsService {
+  val notFoundJsonBody = """{"code":404,"status":"We couldn't find that comic_issue"}"""
+
   sealed trait ComicQueryResult {
     val id: Int
   }
@@ -38,8 +40,6 @@ trait ComicsService {
 
 @Singleton
 class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
-
-  val notFoundJsonBody = """{"code":404,"status":"We couldn't find that comic_issue"}"""
 
   override def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
     comicIds.toList
