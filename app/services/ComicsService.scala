@@ -14,6 +14,7 @@ import cats.instances.all._
 import com.google.inject.ImplementedBy
 import play.api.Logger
 import play.api.cache.CacheApi
+import play.mvc.Http
 import services.ComicsService.{ComicQueryResult, Found, FoundInCache, FoundRemotely, MalformedJson, NotFound, WrongJsonSchema}
 
 object ComicsService {
@@ -38,6 +39,8 @@ trait ComicsService {
 @Singleton
 class ComicsServiceImpl @Inject() (configuration: play.api.Configuration, wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
 
+  val notFoundJsonBody = """{"code":404,"status":"We couldn't find that comic_issue"}"""
+
   override def get(comicIds: Seq[Int]): Future[Seq[ComicQueryResult]] =
     comicIds.toList
       .map(comicDetails)
@@ -57,19 +60,28 @@ class ComicsServiceImpl @Inject() (configuration: play.api.Configuration, wsClie
     id: Int,
     requestUrl: String
   ): Future[ComicQueryResult] = {
-    wsClient.url(requestUrl).execute().map(response => {
-      if (response.status == 200) {
-        val queryResult = processResponse(id, response)
-        cache(queryResult)
-        queryResult
+    wsClient.url(requestUrl).execute().flatMap(response => {
+      response.status match {
+        case Http.Status.OK => {
+          val queryResult = processResponse(id, response)
+          putInCache(queryResult)
+          Future.successful(queryResult)
+        }
+
+        //Todo: This is lame, we should try parsing the json and analysing the response...
+        case Http.Status.NOT_FOUND if response.body == notFoundJsonBody =>
+          Future.successful(NotFound(id))
+
+        case status => {
+          Logger.error(s"Request to marvel failed with status $status and body:\n${response.body}")
+          Future.failed(new RuntimeException(s"Request to marvel failed with status $status and body:\n${response.body}"))
+        }
       }
-      else
-        NotFound(id)
     })
   }
 
   //Todo: Maybe should cache NotFound's too
-  protected def cache(queryResult: ComicQueryResult) = {
+  protected def putInCache(queryResult: ComicQueryResult): Unit = {
     queryResult match {
       case f: Found => {
         Logger.debug(s"Caching Found with ${f.id}")
@@ -81,8 +93,6 @@ class ComicsServiceImpl @Inject() (configuration: play.api.Configuration, wsClie
     }
   }
 
-  //Todo: Should separate out 404 results that are actual 'no page here' since
-  //otherwise if marvel changes the url we will just get NotFounds for everything
   protected def processResponse(id: Int, response: WSResponse): ComicQueryResult = {
     Try(Json.parse(response.body)) match {
       case Failure(exception) => MalformedJson(id, response.body)
