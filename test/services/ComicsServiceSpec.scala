@@ -16,8 +16,6 @@ import play.api.mvc.Results._
 import play.api.test.Helpers._
 import org.mockito.Matchers.{eq => mockitoEq, _}
 
-//Todo: Needs tests for requests that succeed but return non-200/404 error statuses
-//or a 404 with an incorrect body
 class ComicsServiceSpec extends PlaySpec {
 
   val apiKeysPart: String = "apiKeysPart=something"
@@ -150,7 +148,7 @@ class ComicsServiceSpec extends PlaySpec {
       result mustEqual (expectedResult)
     }
 
-    "return NotFound for 404 responses" in {
+    "return NotFound for 404 responses with the correct body (indicating that there is no comic with that id)" in {
       //Given
       val comic1Url = comicUrl(1)
       val comic2Url = comicUrl(2)
@@ -228,6 +226,46 @@ class ComicsServiceSpec extends PlaySpec {
       //When / Then
       //Todo: Sure there's a nice utility method for this somewhere in the framework
       Try(Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf)) mustEqual (Failure(exception))
+    }
+
+    "return a failed future if one of the responses is a 404 without the correct body" in {
+      //Given
+      val comic1Url = comicUrl(1)
+      val comic2Url = comicUrl(2)
+      val validJson = createValidJson(1)
+      val notFoundBody = "Nutin' at this URL"
+      val ws: MockWS = MockWS {
+        case (GET, `comic1Url`) => Action {
+          Ok(validJson.jsonResponse)
+        }
+        case (GET, `comic2Url`) => Action {
+          NotFound("Nutin' at this URL")
+        }
+      }
+      val expectedErrorMessage = s"Request to marvel failed with status 404 and body:\n$notFoundBody"
+
+      Try(Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf)).failed.get.getMessage mustEqual expectedErrorMessage
+    }
+
+    "return a failed future if one of the responses is a non-200 and non-404, or a 404 with a different body" in {
+      for (errorCode <- List(BadRequest, NotFound, InternalServerError)) {
+        //Given
+        val comic1Url = comicUrl(1)
+        val comic2Url = comicUrl(2)
+        val validJson = createValidJson(1)
+        val errorBody = "Nutin' at this URL"
+        val ws: MockWS = MockWS {
+          case (GET, `comic1Url`) => Action {
+            Ok(validJson.jsonResponse)
+          }
+          case (GET, `comic2Url`) => Action {
+            errorCode("Nutin' at this URL")
+          }
+        }
+        val expectedErrorMessage = s"Request to marvel failed with status ${errorCode.header.status} and body:\n$errorBody"
+
+        Try(Await.result(comicsService(ws).get(List(1, 2)), Duration.Inf)).failed.get.getMessage mustEqual expectedErrorMessage
+      }
     }
   }
 
