@@ -20,8 +20,13 @@ class UrlServiceImpl @Inject()(implicit configuration: play.api.Configuration) e
   val publicKey = getString("comical.marvel.publickey", "application.conf is missing the public key")
   val privateKey = getString("comical.marvel.privatekey", "application.conf is missing the private key")
 
-  def comicUrl(query: String): String = {
-    val path = s"${baseUrl}comics/$query?$apiKeysUrlPart"
+  /**
+    * Generates the url for a query for the details of a comic with the argument 'id',
+    * attaching a timestamp, apikey and hash to sign the request as described here:
+    * https://developer.marvel.com/documentation/authorization
+    */
+  def comicUrl(id: String): String = {
+    val path = s"${baseUrl}comics/$id?$apiKeysUrlPart"
     Logger.debug(s"Generated Api: $path")
     path
   }

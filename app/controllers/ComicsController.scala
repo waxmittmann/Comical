@@ -18,10 +18,21 @@ import util.ConfigReader
 class ComicsController @Inject()(comicsService: ComicsService)(implicit configuration: play.api.Configuration, exec: ExecutionContext) extends Controller {
   val maxQueriesPerRequest = ConfigReader.getInt("comical.maxQueriesPerRequest", "application.conf is missing maxQueriesPerRequest")
 
+  /**
+    * Not much to see here, just wanted something at the '/' route until we actually
+    * serve an app or something from here.
+    */
   def index: Action[AnyContent] = Action {
     Ok("This is a proxy for the marvel api. Hit /comics with a comicIds parameter containing a comma-separated list of ids.")
   }
 
+  /**
+    * The main (and only real) endpoint for the Comical proxy.
+    *
+    * It takes an array of comma-separated ints as a url-encoded parameter 'comicIds'
+    * and returns a json object containing the result. See the 'Response format'
+    * section in Readme.md for more details.
+    */
   def comics: Action[AnyContent] = Action.async { implicit request =>
     // Get and parse the query string, then use the comic ids to make a request
     // to ComicsService and create a response from that
@@ -69,8 +80,8 @@ class ComicsController @Inject()(comicsService: ComicsService)(implicit configur
   def searchResponse(queryResults: Seq[ComicQueryResult]): Result = {
     val mapToId = (v: ComicQueryResult) => JsNumber(v.id)
 
-    //Todo: Would be nice to push this up into the service to pass down as an object
-    // and serialize that
+    //Todo: Would be nice for the service to do this work and return a case class
+    // containing these results already divvied up into categories for us
     val found           = extractByType[Found, JsValue](queryResults)(v => v.comicJson)
     val notFound        = extractByType[NotFound, JsNumber](queryResults)(mapToId)
     val wrongJsonSchema = extractByType[WrongJsonSchema, JsNumber](queryResults)(mapToId)

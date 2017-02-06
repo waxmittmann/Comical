@@ -21,7 +21,10 @@ To create a docker image using the docker plugin
 first run: 
 ```sbt "docker:publishLocal"```
 
-then run it:
+find the container id (look for an image named 'comical'):
+```docker images```
+
+then create an image from the container:
 ```docker run --name comical -p 9000:9000 ${imageId}```
 
 You should now have a nice dockerized proxy running!
@@ -144,3 +147,33 @@ EitherT with Future as a common return type to pass errors nicely.
 
 ## Fix project name
 Fix all the project names that are still play-scala or whatever :P
+
+## Nicer code
+There are a few TODO comments scattered about the place indicating where I 
+think it would make sense making things neater.
+
+## A unifying result type using a monad transformer
+Something along the lines of this, using the cats EitherT monad transformer: 
+
+```
+object ComicalResult {
+  type ComicalResult[S, T] = EitherT[Future, S, T]
+
+  def fromOption[S](maybeValue: Option[S]): ComicalResult[Unit, S] =
+    EitherT.fromEither[Future](maybeValue.toRight(()))
+    
+  def value(...)
+    
+  ...  
+}
+```
+
+which expresses computations that can fail in the context of a future. 
+
+That can express pretty much any result in our async environment and will
+make for nice and tidy for loops that can unwind what would otherwise 
+be a long chain of nested method calls.
+
+I started off doing this, but there really isn't enough going on in the 
+current code-base to justify it, but I'd certainly have another go as 
+the app develops further.

@@ -13,7 +13,6 @@ import play.api.cache.CacheApi
 import play.api.libs.json.{JsDefined, JsUndefined, JsValue, Json}
 import play.api.libs.ws.{WSClient, WSResponse}
 import play.mvc.Http
-
 import services.ComicsService.{ComicQueryResult, Found, FoundInCache, FoundRemotely, MalformedJson, NotFound, WrongJsonSchema, notFoundJsonBody}
 
 object ComicsService {
@@ -40,6 +39,22 @@ trait ComicsService {
 @Singleton
 class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, cacheClient: CacheApi)(implicit ec: ExecutionContext, actorSystem: ActorSystem) extends ComicsService {
 
+  /**
+    * Get comics for a list of comic ids. Returns a (future of) a seq of
+    * ComicQueryResult's that can be either:
+    *
+    * - Found, in which case they contain the json response
+    *
+    * - NotFound, indicating there is no comic with that id
+    *
+    * - WrongJsonSchema, indicating that the proxy doesn't know how to get the
+    *     data out of the remote server response (either remote server error or a
+    *     change in response format)
+    *
+    * - MalformedJson, indicating that the body did not contain well-formed json
+    *     which would most likely be caused by an error in the remote server or
+    *     by partially transmitted data.
+    */
   override def comics(comicIds: List[Int]): Future[Seq[ComicQueryResult]] =
     comicIds
       .map(comic)
@@ -50,10 +65,12 @@ class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, c
       .getOrElse(comicRemotely(id, urlService.comicUrl(id.toString)))
 
   protected def comicFromCache(id: Int): Option[Future[ComicQueryResult]] =
+  // Get a comic from the cache, if available
     cacheClient
       .get[JsValue](id.toString)
       .map(json => Future.successful(FoundInCache(id, json)))
 
+  // Get a comic from the marvel api
   protected def comicRemotely(id: Int, requestUrl: String): Future[ComicQueryResult] =
     for {
       response    <- wsClient.url(requestUrl).execute()
@@ -78,6 +95,10 @@ class ComicsServiceImpl @Inject() (wsClient: WSClient, urlService: UrlService, c
       }
     }
 
+  //Todo: This could be factored out into a separate parser or service as it's
+  // the only part really concerned with the structure of the result (well, that
+  // and the case statement in 'resultFromResponse' for NOT_FOUND with notFoundJsonBody,
+  // but we could handle both in here)
   protected def processResponse(id: Int, response: WSResponse): ComicQueryResult =
     Try(Json.parse(response.body)) match {
       case Failure(exception) =>

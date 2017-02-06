@@ -1,7 +1,9 @@
 package util
 
-//Wanted to have this as a trait, but declaring config in a val didn't play
-//nicely with injecting it as a param into the class :(
+/**
+  * Util methods that encapsulate reading an int or string with key 'key' from a
+  * Configuration object and throwing an error with 'errorMsg' if it is not found.
+  */
 object ConfigReader {
   def getString(key: String, errorMsg: String)(implicit config: play.api.Configuration): String =
     config
