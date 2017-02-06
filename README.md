@@ -72,9 +72,10 @@ Example:
 }
 ```
 
-# Example requests
-(The server needs to be running for these, won't run off the web)
+# Example requests (start the proxy first)
+
 [Single Id](http://localhost:9000/comics?comicIds=2)
+
 [Multiple Ids, comma (%2C) separated](http://localhost:9000/comics?comicIds=2323%2C1%2C2%2C3%2C4%2C9999999)
 
 ## For requests with a missing or invalid comicIds parameter, a 400 status and:
